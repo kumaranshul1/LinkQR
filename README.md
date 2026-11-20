@@ -24,6 +24,16 @@ This repository contains both:
 
 For permanent installation on Firefox Release, zip the contents of `extension/` (or click **Download Extension (.zip)** in the web studio) and submit it under **On your own** (unlisted self-distribution) at [addons.mozilla.org/developers](https://addons.mozilla.org/developers/) to receive a signed `.xpi`.
 
+## Live Playground on GitHub Pages
+
+This repository includes a GitHub Actions workflow (`.github/workflows/deploy-pages.yml`) that verifies the extension and deploys the interactive playground (including the one-click `.zip` downloader) automatically on every push to `main`.
+
+To enable it once pushed to GitHub:
+
+1. Open your repository on GitHub and go to **Settings → Pages**.
+2. Under **Build and deployment → Source**, select **GitHub Actions**.
+3. Push to `main` (or trigger the **Deploy Playground to GitHub Pages** workflow manually from the **Actions** tab). Your live playground will be published at `https://<your-username>.github.io/<your-repo>/`.
+
 ## Development & Verification
 
 ```bash
