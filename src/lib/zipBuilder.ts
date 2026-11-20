@@ -1,9 +1,11 @@
-import JSZip from 'jszip';
-import { EXTENSION_FILES } from './extensionFiles';
-
 export const EXTENSION_ZIP_FILENAME = 'linkqr-firefox-mv3.zip';
 
 export async function downloadExtensionZip(): Promise<void> {
+  const [{ default: JSZip }, { EXTENSION_FILES }] = await Promise.all([
+    import('jszip'),
+    import('./extensionFiles'),
+  ]);
+
   const zip = new JSZip();
   for (const file of EXTENSION_FILES) {
     zip.file(file.path, file.content);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import {
   BookOpen,
   Check,
@@ -10,9 +10,14 @@ import {
   X,
 } from 'lucide-react';
 import { FirefoxSandbox } from './components/FirefoxSandbox';
-import { ExtensionSourceViewer } from './components/ExtensionSourceViewer';
 import { InstallGuide } from './components/InstallGuide';
 import { downloadExtensionZip } from './lib/zipBuilder';
+
+const ExtensionSourceViewer = lazy(() =>
+  import('./components/ExtensionSourceViewer').then((m) => ({
+    default: m.ExtensionSourceViewer,
+  }))
+);
 
 type WorkspaceTab = 'sandbox' | 'source' | 'install';
 
@@ -172,7 +177,17 @@ export default function App() {
         {/* Active Workspace Viewport */}
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {activeTab === 'sandbox' && <FirefoxSandbox />}
-          {activeTab === 'source' && <ExtensionSourceViewer />}
+          {activeTab === 'source' && (
+            <Suspense
+              fallback={
+                <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
+                  Loading extension source…
+                </div>
+              }
+            >
+              <ExtensionSourceViewer />
+            </Suspense>
+          )}
           {activeTab === 'install' && (
             <InstallGuide onDownload={handleDownload} downloadState={downloadState} />
           )}
