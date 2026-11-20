@@ -2,6 +2,8 @@
 
 **LinkQR** is a lightweight, offline Manifest V3 Firefox extension that lets you right-click any link, highlighted text selection, or webpage to display a crisp, theme-matched floating QR code right beside your cursor for instant phone scanning.
 
+- **Live Playground & `.zip` Downloader**: [kumaranshul1.github.io/LinkQR](https://kumaranshul1.github.io/LinkQR/)
+
 This repository contains both:
 
 1. **`/extension/`** — The ready-to-load Firefox Manifest V3 WebExtension (`manifest.json`, `background.js`, `content.js`, `qrcodegen.js`, `icons/icon.svg`).
@@ -52,6 +54,7 @@ npm run build             # Production build
 - `src/lib/themeResolver.ts` — Firefox theme presets and WCAG relative-luminance contrast guard shared with the sandbox.
 - `src/components/` — Interactive Firefox browser simulator, floating QR card, source inspector, and install guide.
 - `scripts/verify-extension.mjs` — Automated verification script for the extension package and QR encoder.
+- `.github/workflows/deploy-pages.yml` — GitHub Actions workflow that verifies, builds, and deploys the playground to GitHub Pages on pushes to `main`.
 
 ## License & Attribution
 

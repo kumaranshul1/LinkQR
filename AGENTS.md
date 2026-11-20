@@ -38,13 +38,17 @@ This repository houses a **Manifest V3 Firefox extension** (`/extension/`) along
    - Never introduce external QR APIs, analytics, or network requests inside `/extension/`.
 6. **Vendored Files**:
    - Do not hand-edit `extension/qrcodegen.js` or `src/lib/vendor/qrcodegen.ts`. Both originate verbatim from `nayuki/QR-Code-generator` (`typescript-javascript/qrcodegen.ts`, MIT License).
+7. **Playground Build & GitHub Pages CI**:
+   - Keep `base: process.env.VITE_BASE_PATH || (command === 'build' ? './' : '/')` and `import.meta.dirname` (not `__dirname`) in `vite.config.ts` so production builds work at any GitHub Pages subpath with zero Vite 8 warnings.
+   - Keep `jszip` (`src/lib/zipBuilder.ts`) and `ExtensionSourceViewer` (`src/App.tsx`) lazily imported so the main bundle stays under Vite’s 500 kB chunk warning threshold.
+   - Keep `.github/workflows/deploy-pages.yml` working both with and without `package-lock.json` (`npm ci` when present, `npm install` otherwise), and avoid adding unused packages that create peer conflicts during clean CI installs.
 
 ## Verification Commands
 
-Run all three commands after making changes:
+Run all three commands after making changes (the GitHub Pages workflow runs all three automatically on pushes to `main`):
 
 ```bash
 npm run verify:extension  # Checks manifest.json schema, referenced files, JS syntax, QR parity, and contrast guard
 npm run lint              # TypeScript type-check (tsc --noEmit)
-npm run build             # Vite production bundle
+npm run build             # Vite production bundle (should finish with zero warnings)
 ```
