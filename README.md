@@ -18,6 +18,7 @@ This repository contains both:
   - **Chrome, Edge, Brave & Safari**: Follows your browser/OS light and dark appearance via `prefers-color-scheme`.
 - **Automatic QR contrast safeguard**: Renders QR modules in your theme’s ink on high-contrast light surfaces (`>= 7:1`), and automatically frames the QR matrix on a crisp white quiet-zone plate in dark mode so phone cameras always scan reliably.
 - **Ultra-minimal Shadow DOM overlay**: Displays only the scannable vector QR code, a subtle truncated URL/text caption, and a quiet close button—dismissible with `Esc` or clicking outside, isolated from host page CSS.
+- **Zero background footprint & minimal permissions**: Uses pure on-demand `activeTab` + `scripting` injection—no `<all_urls>` host permissions, zero scripts injected into tabs you aren’t generating QR codes on, and zero `innerHTML` usage.
 - **100% offline**: Powered by Project Nayuki’s MIT-licensed [QR-Code-generator](https://github.com/nayuki/QR-Code-generator) with optimal Numeric/Alphanumeric/Byte segmentation and automatic error-correction boosting (`boostEcl`).
 
 ## Installation
@@ -78,4 +79,5 @@ npm run build              # Production build
 
 ## License & Attribution
 
+- **LinkQR** is licensed under the [MIT License](./LICENSE).
 - QR code generation uses Project Nayuki’s [QR-Code-generator](https://github.com/nayuki/QR-Code-generator) under the MIT License.

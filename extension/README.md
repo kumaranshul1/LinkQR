@@ -22,10 +22,13 @@ Right-click any link, highlighted text selection, or webpage to display a crisp,
 
 ## Permissions Used
 
+LinkQR requests **no `<all_urls>` host permissions** and runs zero scripts on tabs until you click a menu item:
+
 - `contextMenus`: Adds right-click menu entries for links, selections, and pages.
-- `activeTab` & `scripting`: Allows displaying the QR card immediately even on tabs opened before installation.
+- `activeTab` & `scripting`: Injects the QR overlay strictly on demand into the active tab only when you click **Show QR Code**.
 - `theme` *(Firefox package only)*: Reads active Firefox theme colors (`popup`, `popup_text`, `popup_border`). On Chromium and Safari, LinkQR automatically follows your browser/OS light and dark mode via `prefers-color-scheme`.
 
-## Credits
+## License & Credits
 
-QR code generation runs 100% offline using Project Nayuki's [QR-Code-generator](https://github.com/nayuki/QR-Code-generator) (MIT License) with automatic error-correction boosting (`boostEcl`).
+- LinkQR is released under the MIT License.
+- QR code generation runs 100% offline using Project Nayuki's [QR-Code-generator](https://github.com/nayuki/QR-Code-generator) (MIT License) with automatic error-correction boosting (`boostEcl`).

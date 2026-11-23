@@ -11,20 +11,24 @@
 
   const extApi = typeof globalThis.browser !== "undefined" ? globalThis.browser : globalThis.chrome;
 
+  const SVG_NS = "http://www.w3.org/2000/svg";
   const HOST_ID = "linkqr-floating-overlay-host";
   const CARD_WIDTH = 248;
   const CARD_ESTIMATED_HEIGHT = 278;
   const VIEWPORT_MARGIN = 14;
+  const CONTEXT_MAX_AGE_MS = 15000;
 
   let lastContextPoint = null;
+  let lastContextTime = 0;
   let lastAnchorRect = null;
   let activeHost = null;
 
-  // Capture cursor position and link bounding box on every right-click
+  // Capture cursor position and link bounding box on subsequent right-clicks in this tab
   document.addEventListener(
     "contextmenu",
     (event) => {
       lastContextPoint = { x: event.clientX, y: event.clientY };
+      lastContextTime = Date.now();
       const linkEl =
         event.target && event.target.closest ? event.target.closest("a[href]") : null;
       if (linkEl) {
@@ -140,7 +144,10 @@
     let anchorX = window.innerWidth / 2 - CARD_WIDTH / 2;
     let anchorY = window.innerHeight / 2 - CARD_ESTIMATED_HEIGHT / 2;
 
-    let rect = lastAnchorRect;
+    const hasFreshContext =
+      lastContextPoint !== null && Date.now() - lastContextTime < CONTEXT_MAX_AGE_MS;
+
+    let rect = hasFreshContext ? lastAnchorRect : null;
     if (
       typeof targetElementId === "number" &&
       extApi &&
@@ -156,16 +163,20 @@
       }
     }
 
-    if (lastContextPoint) {
+    if (hasFreshContext) {
       anchorX = lastContextPoint.x + 12;
       anchorY = rect ? rect.bottom + 10 : lastContextPoint.y + 12;
+    } else if (rect) {
+      // First on-demand click in Firefox where menus.getTargetElement resolves the clicked link
+      anchorX = rect.left;
+      anchorY = rect.bottom + 10;
+    }
 
-      // Flip above the link if there isn't enough room below
-      if (anchorY + CARD_ESTIMATED_HEIGHT > window.innerHeight - VIEWPORT_MARGIN && rect) {
-        const aboveY = rect.top - CARD_ESTIMATED_HEIGHT - 10;
-        if (aboveY >= VIEWPORT_MARGIN) {
-          anchorY = aboveY;
-        }
+    // Flip above the link if there isn't enough room below
+    if (rect && anchorY + CARD_ESTIMATED_HEIGHT > window.innerHeight - VIEWPORT_MARGIN) {
+      const aboveY = rect.top - CARD_ESTIMATED_HEIGHT - 10;
+      if (aboveY >= VIEWPORT_MARGIN) {
+        anchorY = aboveY;
       }
     }
 
@@ -228,6 +239,49 @@
     }
   }
 
+  function buildQrSvgElement(qr, theme) {
+    const quietZone = 4;
+    const viewBoxSize = qr.size + quietZone * 2;
+    const pathData = qrToSvgPath(qr, quietZone);
+
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${viewBoxSize} ${viewBoxSize}`);
+    svg.setAttribute("width", "200");
+    svg.setAttribute("height", "200");
+    svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Scannable QR code");
+
+    const bgRect = document.createElementNS(SVG_NS, "rect");
+    bgRect.setAttribute("width", "100%");
+    bgRect.setAttribute("height", "100%");
+    bgRect.setAttribute("fill", theme.qrBg);
+
+    const modulesPath = document.createElementNS(SVG_NS, "path");
+    modulesPath.setAttribute("d", pathData);
+    modulesPath.setAttribute("fill", theme.qrFg);
+
+    svg.appendChild(bgRect);
+    svg.appendChild(modulesPath);
+    return svg;
+  }
+
+  function buildCloseIconSvg() {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("width", "14");
+    svg.setAttribute("height", "14");
+    svg.setAttribute("viewBox", "0 0 14 14");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.75");
+    svg.setAttribute("stroke-linecap", "round");
+
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", "M3 3l8 8M11 3l-8 8");
+    svg.appendChild(path);
+    return svg;
+  }
+
   function showOverlay({ payload, targetElementId, themeColors }) {
     dismissOverlay();
 
@@ -241,19 +295,11 @@
 
     const shadow = host.attachShadow({ mode: "open" });
 
-    let qrSvgHtml = "";
+    let qrSvgEl = null;
     let errorMessage = "";
     try {
       const qr = encodePayloadToQr(payload);
-      const quietZone = 4;
-      const viewBoxSize = qr.size + quietZone * 2;
-      const pathData = qrToSvgPath(qr, quietZone);
-      qrSvgHtml = `
-        <svg viewBox="0 0 ${viewBoxSize} ${viewBoxSize}" width="200" height="200" shape-rendering="crispEdges" role="img" aria-label="Scannable QR code">
-          <rect width="100%" height="100%" fill="${theme.qrBg}" />
-          <path d="${pathData}" fill="${theme.qrFg}" />
-        </svg>
-      `;
+      qrSvgEl = buildQrSvgElement(qr, theme);
     } catch {
       errorMessage = "Selected content exceeds the maximum QR code capacity.";
     }
@@ -348,8 +394,7 @@
     closeBtn.className = "close-btn";
     closeBtn.type = "button";
     closeBtn.setAttribute("aria-label", "Close QR code");
-    closeBtn.innerHTML =
-      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 3l8 8M11 3l-8 8"/></svg>';
+    closeBtn.appendChild(buildCloseIconSvg());
     closeBtn.addEventListener("click", dismissOverlay);
     card.appendChild(closeBtn);
 
@@ -358,10 +403,10 @@
       errEl.className = "error";
       errEl.textContent = errorMessage;
       card.appendChild(errEl);
-    } else {
+    } else if (qrSvgEl) {
       const qrFrame = document.createElement("div");
       qrFrame.className = "qr-frame";
-      qrFrame.innerHTML = qrSvgHtml;
+      qrFrame.appendChild(qrSvgEl);
       card.appendChild(qrFrame);
 
       const caption = document.createElement("p");

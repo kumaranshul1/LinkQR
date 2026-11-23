@@ -42,8 +42,12 @@ const firefoxManifest = JSON.parse(fs.readFileSync(firefoxManifestPath, 'utf8'))
 
 assert(firefoxManifest.manifest_version === 3, 'Firefox manifest_version must be 3');
 assert(
-  firefoxManifest.browser_specific_settings?.gecko?.id,
-  'browser_specific_settings.gecko.id is required for Firefox'
+  firefoxManifest.browser_specific_settings?.gecko?.id === 'linkqr@kumaranshul1.github.io',
+  'browser_specific_settings.gecko.id must be linkqr@kumaranshul1.github.io'
+);
+assert(
+  !firefoxManifest.content_scripts && !firefoxManifest.host_permissions,
+  'Firefox manifest must use pure on-demand activeTab injection (no static content_scripts or host_permissions)'
 );
 assert(
   Array.isArray(firefoxManifest.background?.scripts) &&
@@ -67,6 +71,10 @@ assert(chromiumManifest.manifest_version === 3, 'Chromium/Safari manifest_versio
 assert(
   chromiumManifest.background?.service_worker === 'background.js',
   'Chromium/Safari manifest must declare background.service_worker'
+);
+assert(
+  !chromiumManifest.content_scripts && !chromiumManifest.host_permissions,
+  'Chromium/Safari manifest must use pure on-demand activeTab injection (no static content_scripts or host_permissions)'
 );
 assert(
   !chromiumManifest.background?.scripts,
@@ -95,22 +103,26 @@ for (const size of [16, 32, 48, 128]) {
 
 const referencedFiles = new Set([
   ...(firefoxManifest.background?.scripts ?? []),
-  ...(firefoxManifest.content_scripts ?? []).flatMap((cs) => cs.js ?? []),
   ...Object.values(firefoxManifest.icons ?? {}),
   chromiumManifest.background?.service_worker,
-  ...(chromiumManifest.content_scripts ?? []).flatMap((cs) => cs.js ?? []),
   ...Object.values(chromiumManifest.icons ?? {}),
+  'qrcodegen.js',
+  'content.js',
 ]);
 
 for (const relPath of referencedFiles) {
   const fullPath = path.join(extDir, relPath);
-  assert(fs.existsSync(fullPath), `Manifest references missing file: extension/${relPath}`);
+  assert(fs.existsSync(fullPath), `Extension references missing file: extension/${relPath}`);
 }
 
-// 2. Verify JS syntax of all shared extension scripts
+// 2. Verify JS syntax & AMO safety rules (no innerHTML in content.js)
 const backgroundSrc = fs.readFileSync(path.join(extDir, 'background.js'), 'utf8');
 const contentSrc = fs.readFileSync(path.join(extDir, 'content.js'), 'utf8');
 const qrcodegenSrc = fs.readFileSync(path.join(extDir, 'qrcodegen.js'), 'utf8');
+assert(
+  !/\binnerHTML\b/.test(contentSrc),
+  'extension/content.js must not use innerHTML (use createElementNS for AMO linter compliance)'
+);
 new Function(backgroundSrc);
 new Function(contentSrc);
 new Function(qrcodegenSrc);
@@ -212,14 +224,23 @@ async function testBackgroundRuntime(mode) {
     { id: 42, windowId: 7, url: 'https://example.org' }
   );
 
-  assert(injectedTabs.length === 1, `${mode}: scripting fallback did not trigger`);
-  assert(sentMessages.length === 1, `${mode}: message not delivered after fallback injection`);
+  assert(injectedTabs.length === 1, `${mode}: on-demand scripting injection did not trigger`);
+  assert(sentMessages.length === 1, `${mode}: message not delivered after on-demand injection`);
   assert(sentMessages[0].msg.payload === 'https://example.org/test', `${mode}: payload mismatch`);
   if (mode === 'firefox') {
     assert(sentMessages[0].msg.themeColors?.popup === '#2B2A33', 'firefox: themeColors missing');
   } else {
     assert(sentMessages[0].msg.themeColors === null, 'chromium: themeColors should be null');
   }
+
+  // Second trigger on the same tab should reuse the injected script without re-injecting
+  await onClickedCb(
+    { menuItemId: 'linkqr-show-selection', selectionText: '  hello-qr  ' },
+    { id: 42, windowId: 7, url: 'https://example.org' }
+  );
+  assert(injectedTabs.length === 1, `${mode}: should not re-inject on subsequent clicks`);
+  assert(sentMessages.length === 2, `${mode}: second message not delivered directly`);
+  assert(sentMessages[1].msg.payload === 'hello-qr', `${mode}: selection text not trimmed`);
 }
 
 await testBackgroundRuntime('firefox');

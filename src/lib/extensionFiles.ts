@@ -43,7 +43,7 @@ const SHARED_SCRIPT_FILES: readonly ExtensionTextFile[] = [
     path: 'background.js',
     language: 'javascript',
     summary:
-      'Cross-browser MV3 event page / service worker with zero-dependency browser/chrome shim, context menus, and optional Firefox theme resolution.',
+      'Cross-browser MV3 event page / service worker with zero-dependency browser/chrome shim, context menus, optional Firefox theme resolution, and pure on-demand activeTab injection.',
     content: backgroundJs,
   },
   {
@@ -51,7 +51,7 @@ const SHARED_SCRIPT_FILES: readonly ExtensionTextFile[] = [
     path: 'content.js',
     language: 'javascript',
     summary:
-      'Tracks right-click position, applies Firefox theme or OS light/dark mode with a WCAG contrast guard, and renders the Shadow DOM floating QR card.',
+      'Injected on demand to render a Shadow DOM floating QR card using safe SVG DOM APIs (zero innerHTML), Firefox theme or OS light/dark contrast guard, and fresh right-click anchoring.',
     content: contentJs,
   },
   {
@@ -78,7 +78,7 @@ export const FIREFOX_EXTENSION_FILES: readonly ExtensionFile[] = [
     path: 'manifest.json',
     language: 'json',
     summary:
-      'Firefox MV3 manifest (109+) with Gecko ID, theme API permission, SVG icon, and non-persistent event page.',
+      'Firefox MV3 manifest (109+) with Gecko ID, theme API permission, SVG icon, and pure on-demand activeTab injection (no <all_urls> host permissions).',
     content: firefoxManifestJson,
   },
   ...SHARED_SCRIPT_FILES,
@@ -99,7 +99,7 @@ export const CHROMIUM_SAFARI_EXTENSION_FILES: readonly ExtensionFile[] = [
     sourcePath: 'extension/manifest.chromium.json',
     language: 'json',
     summary:
-      'W3C-standard MV3 manifest for Chrome, Edge, Brave, Opera, Vivaldi, Arc, and Safari (service_worker + raster PNG icons, zero Firefox-only keys).',
+      'W3C-standard MV3 manifest for Chrome, Edge, Brave, Opera, Vivaldi, Arc, and Safari (service_worker, raster PNG icons, and pure on-demand activeTab injection with zero <all_urls> permissions).',
     content: chromiumManifestJson,
   },
   ...SHARED_SCRIPT_FILES,

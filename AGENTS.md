@@ -22,19 +22,20 @@ This repository houses a **cross-browser Manifest V3 extension** (`/extension/`)
 
 ## Non-Negotiable Product & Technical Invariants
 
-1. **Cross-Browser Manifest V3 Separation**:
-   - Keep `extension/manifest.json` compliant with Firefox MV3 (`background.scripts`, `browser_specific_settings.gecko`, `"theme"` permission).
+1. **Cross-Browser Manifest V3 Separation & Least-Privilege Permissions**:
+   - Keep `extension/manifest.json` compliant with Firefox MV3 (`background.scripts`, `browser_specific_settings.gecko` with `id: "linkqr@kumaranshul1.github.io"`, `"theme"` permission).
    - Keep `extension/manifest.chromium.json` strictly free of Firefox-only keys (`theme`, `browser_specific_settings`, `background.scripts`, `.svg` icons) and Chrome-only vendor keys so it loads with zero warnings in Chrome, Edge, Brave, and Safari (`xcrun safari-web-extension-converter`).
+   - Do **not** add static `content_scripts` or `<all_urls>` host permissions to either manifest; inject `qrcodegen.js` and `content.js` strictly on demand via `activeTab` + `scripting.executeScript` so browsing tabs incur zero memory/CPU overhead.
 2. **Cross-Browser Background Runtime Rules (`extension/background.js`)**:
    - Keep the zero-dependency `globalThis.browser` / `globalThis.chrome` shim handling Promise-based `browser.*` (Firefox/Safari) and callback-based `chrome.*` (`contextMenus.removeAll`, `contextMenus.create`, `tabs.sendMessage`).
    - Register `runtime.onInstalled`, `runtime.onStartup`, and `contextMenus.onClicked` synchronously at the top level (required for both Firefox event pages and Chromium/Safari MV3 service workers).
-   - Keep the `scripting.executeScript` fallback so LinkQR works on tabs already open before installation.
+   - On click, reuse an already-injected tab via `tabs.sendMessage` and inject `["qrcodegen.js", "content.js"]` via `scripting.executeScript` on first trigger in that tab.
 3. **Context Menu Scope**:
    - Support three triggers across all browsers: `link`, `selection`, and `page`.
-4. **Minimal Floating QR Card**:
-   - Anchor near the right-clicked link/cursor with viewport edge clamping (flipping above the link when near the bottom edge).
+4. **Minimal Floating QR Card & AMO Linter Safety**:
+   - Anchor near the right-clicked link/cursor (with a 15-second freshness guard against stale coordinates and Firefox `menus.getTargetElement` support on first click) with viewport edge clamping (flipping above the link when near the bottom edge).
    - Keep the popup minimal and distraction-free: display only the scannable QR SVG (with mandatory 4-module quiet zone), a subtle truncated payload caption, and a quiet close button (`Esc` and outside click dismiss). Do not add action toolbars or extra buttons inside the popup unless explicitly requested.
-   - Always render inside a Shadow DOM root at maximum z-index (`2147483647`) so host website CSS cannot break styling.
+   - Always render inside a Shadow DOM root at maximum z-index (`2147483647`) using safe DOM APIs (`createElementNS` for SVG, never `innerHTML`) so host website CSS cannot break styling and AMO automated review passes with zero warnings.
 5. **Theming & QR Scannability Contrast Guard**:
    - On Firefox, read active theme colors in `background.js` via guarded `extApi.theme?.getCurrent(tab.windowId)` and pass them to `content.js`.
    - On Chromium and Safari (or Firefox System Theme), `themeColors` is `null` and `content.js` falls back automatically to `prefers-color-scheme` Light/Dark mode.

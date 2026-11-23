@@ -2,7 +2,8 @@
  * LinkQR Background Script (Cross-Browser Manifest V3 — Firefox, Chromium & Safari)
  * Runs as a non-persistent event page in Firefox and a service worker in Chromium/Safari.
  * Registers context menus for links, selected text, and pages, resolves active Firefox
- * theme colors when available, and sends the payload to the active tab's content script.
+ * theme colors when available, and injects the overlay scripts strictly on demand via
+ * activeTab + scripting (zero background footprint on browsing tabs, no <all_urls> permission).
  */
 
 const hasBrowserNamespace = typeof globalThis.browser !== "undefined";
@@ -131,9 +132,10 @@ extApi.contextMenus.onClicked.addListener(async (info, tab) => {
   };
 
   try {
+    // Reuse the already-injected content script if LinkQR was previously opened on this tab
     await sendMessageToTab(tab.id, message);
   } catch {
-    // Fallback for tabs that were already open prior to installing or reloading LinkQR
+    // Pure on-demand injection via activeTab + scripting on first trigger in this tab
     try {
       await injectContentScripts(tab.id);
       await sendMessageToTab(tab.id, message);

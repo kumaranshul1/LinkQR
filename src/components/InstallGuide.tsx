@@ -24,12 +24,14 @@ const PERMISSIONS_LIST = [
   {
     name: 'activeTab',
     browsers: 'All browsers',
-    reason: 'Grants temporary access to display the floating QR card on the tab where you right-clicked.',
+    reason:
+      'Grants temporary access only to the active tab when you click Show QR Code—no broad "<all_urls>" host permissions required.',
   },
   {
     name: 'scripting',
     browsers: 'All browsers',
-    reason: 'Ensures LinkQR works immediately on tabs that were already open before you installed the extension.',
+    reason:
+      'Injects the QR encoder and floating card strictly on demand when clicked, leaving zero background memory or CPU footprint on browsing tabs.',
   },
   {
     name: 'theme',
@@ -475,7 +477,9 @@ export function InstallGuide({
         <div className="border-b border-slate-200 px-6 py-4">
           <h2 className="text-base font-semibold text-slate-900">Manifest V3 Permissions</h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            All QR encoding runs locally inside the browser—no network requests or external APIs.
+            Zero <span className="font-mono text-slate-700">&lt;all_urls&gt;</span> host
+            permissions, zero background scripts injected while browsing, and 100% offline QR
+            encoding.
           </p>
         </div>
 

@@ -17,16 +17,9 @@
   "background": {
     "scripts": ["background.js"]
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["qrcodegen.js", "content.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "linkqr@firefox-extension.local",
+      "id": "linkqr@kumaranshul1.github.io",
       "strict_min_version": "109.0"
     }
   }
