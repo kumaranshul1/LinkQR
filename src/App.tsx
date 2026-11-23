@@ -9,7 +9,7 @@ import {
   QrCode,
   X,
 } from 'lucide-react';
-import { FirefoxSandbox } from './components/FirefoxSandbox';
+import { BrowserSandbox } from './components/BrowserSandbox';
 import {
   BROWSER_TARGETS,
   BrowserTarget,
@@ -190,7 +190,7 @@ export default function App() {
         {/* Active Workspace Viewport */}
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {activeTab === 'sandbox' && (
-            <FirefoxSandbox
+            <BrowserSandbox
               browserTarget={browserTarget}
               onBrowserTargetChange={setBrowserTarget}
             />

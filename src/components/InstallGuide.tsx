@@ -280,7 +280,20 @@ export function InstallGuide({
                     linkqr-chromium-safari-mv3.zip
                   </span>{' '}
                   and unzip it into a permanent folder (e.g.{' '}
-                  <span className="font-mono text-xs text-slate-900">~/Extensions/LinkQR</span>).
+                  <span className="font-mono text-xs text-slate-900">~/Extensions/LinkQR</span>). If
+                  you cloned the repo locally, run{' '}
+                  <span className="font-mono text-xs text-slate-900">
+                    npm run package:extension
+                  </span>{' '}
+                  to generate{' '}
+                  <span className="font-mono text-xs text-slate-900">
+                    dist-extension/chromium-safari/
+                  </span>{' '}
+                  (the repo keeps Chromium’s manifest at{' '}
+                  <span className="font-mono text-xs text-slate-900">
+                    extension/manifest.chromium.json
+                  </span>
+                  ).
                 </div>
               </li>
 
@@ -388,7 +401,13 @@ export function InstallGuide({
                   linkqr-chromium-safari-mv3.zip
                 </span>{' '}
                 and unzip it into a folder named{' '}
-                <span className="font-mono text-xs text-slate-900">linkqr-safari</span>.
+                <span className="font-mono text-xs text-slate-900">linkqr-safari</span> (or run{' '}
+                <span className="font-mono text-xs text-slate-900">npm run package:extension</span>{' '}
+                in a local clone and point the converter at{' '}
+                <span className="font-mono text-xs text-slate-900">
+                  ./dist-extension/chromium-safari
+                </span>
+                ).
               </div>
             </li>
 

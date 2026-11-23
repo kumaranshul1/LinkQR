@@ -19,6 +19,7 @@ import { ExtensionBundleId } from './browserTargets';
 export interface ExtensionTextFile {
   kind: 'text';
   path: string;
+  sourcePath?: string;
   language: 'json' | 'javascript' | 'svg' | 'markdown';
   summary: string;
   content: string;
@@ -95,6 +96,7 @@ export const CHROMIUM_SAFARI_EXTENSION_FILES: readonly ExtensionFile[] = [
   {
     kind: 'text',
     path: 'manifest.json',
+    sourcePath: 'extension/manifest.chromium.json',
     language: 'json',
     summary:
       'W3C-standard MV3 manifest for Chrome, Edge, Brave, Opera, Vivaldi, Arc, and Safari (service_worker + raster PNG icons, zero Firefox-only keys).',

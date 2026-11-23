@@ -197,6 +197,14 @@ export function ExtensionSourceViewer({
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-slate-500">{activeFile.summary}</p>
+              {activeFile.kind === 'text' && activeFile.sourcePath && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Packaged from{' '}
+                  <span className="font-mono text-slate-700">{activeFile.sourcePath}</span> as{' '}
+                  <span className="font-mono text-slate-700">{activeFile.path}</span> inside{' '}
+                  <span className="font-mono text-slate-700">{zipName}</span>.
+                </p>
+              )}
             </div>
 
             {activeFile.kind === 'text' && (

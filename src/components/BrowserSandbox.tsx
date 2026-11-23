@@ -29,7 +29,7 @@ import {
 } from '../lib/themeResolver';
 import { FloatingQrCard, FloatingQrState } from './FloatingQrCard';
 
-interface FirefoxSandboxProps {
+interface BrowserSandboxProps {
   browserTarget: BrowserTarget;
   onBrowserTargetChange: (target: BrowserTarget) => void;
 }
@@ -71,10 +71,10 @@ const INITIAL_LINKS: SampleLink[] = [
   },
 ];
 
-export function FirefoxSandbox({
+export function BrowserSandbox({
   browserTarget,
   onBrowserTargetChange,
-}: FirefoxSandboxProps) {
+}: BrowserSandboxProps) {
   const [selectedThemeId, setSelectedThemeId] = useState<string>(FIREFOX_THEME_PRESETS[0].id);
   const [osAppearance, setOsAppearance] = useState<OsAppearance>('light');
   const [pageUrl, setPageUrl] = useState<string>('https://handbook.example.org/browser-handoff');

@@ -28,11 +28,11 @@ This repository contains both:
 3. For permanent installation on Firefox Release, upload `linkqr-firefox-mv3.zip` under **On your own** at [addons.mozilla.org/developers](https://addons.mozilla.org/developers/) to receive a signed `.xpi`.
 
 ### Chrome, Edge, Brave, Opera, Vivaldi & Arc
-1. Download `linkqr-chromium-safari-mv3.zip` from the [Live Playground](https://kumaranshul1.github.io/LinkQR/) and unzip it.
-2. Open `chrome://extensions` (or `edge://extensions` / `brave://extensions`), enable **Developer mode**, click **Load unpacked**, and select the extracted folder.
+1. Download `linkqr-chromium-safari-mv3.zip` from the [Live Playground](https://kumaranshul1.github.io/LinkQR/) and unzip it — **or**, from a local git clone, run `npm run package:extension` to assemble `dist-extension/chromium-safari/` (the repo stores Chromium’s manifest as `extension/manifest.chromium.json` and copies it to `manifest.json` during packaging).
+2. Open `chrome://extensions` (or `edge://extensions` / `brave://extensions`), enable **Developer mode**, click **Load unpacked**, and select the extracted folder (or `dist-extension/chromium-safari/`).
 
 ### Safari (macOS / iOS)
-1. Download `linkqr-chromium-safari-mv3.zip` and unzip it to `./linkqr-safari`.
+1. Download `linkqr-chromium-safari-mv3.zip` and unzip it to `./linkqr-safari` (or run `npm run package:extension` and use `./dist-extension/chromium-safari`).
 2. Convert it into an Xcode project using Apple’s official tool:
    ```bash
    xcrun safari-web-extension-converter ./linkqr-safari --app-name LinkQR --bundle-identifier com.local.linkqr
@@ -53,10 +53,11 @@ To enable it on a fork:
 
 ```bash
 npm install
-npm run dev               # Start the interactive sandbox on http://localhost:3000
-npm run verify:extension  # Validate Firefox & Chromium manifests, PNGs, runtimes, QR parity, and contrast guard
-npm run lint              # TypeScript type-check (tsc --noEmit)
-npm run build             # Production build
+npm run dev                # Start the interactive sandbox on http://localhost:3000
+npm run package:extension  # Assemble unpacked dist-extension/{firefox,chromium-safari}/ folders locally
+npm run verify:extension   # Validate Firefox & Chromium manifests, PNGs, runtimes, QR parity, and contrast guard
+npm run lint               # TypeScript type-check (tsc --noEmit)
+npm run build              # Production build
 ```
 
 ## Project Structure
@@ -69,7 +70,8 @@ npm run build             # Production build
 - `src/lib/extensionFiles.ts` — Imports `extension/*` via Vite `?raw` and asset imports to assemble Firefox and Chromium/Safari packages.
 - `src/lib/qrEncoder.ts` — TypeScript wrapper around vendored Project Nayuki `qrcodegen` (`src/lib/vendor/qrcodegen.ts`) used by the sandbox.
 - `src/lib/themeResolver.ts` — Firefox theme presets, Chromium/Safari light & dark presets, and WCAG contrast guard.
-- `src/components/` — Interactive multi-browser simulator, floating QR card, per-target source inspector, and tabbed install guide.
+- `src/components/` — Interactive multi-browser simulator (`BrowserSandbox`), floating QR card, per-target source inspector, and tabbed install guide.
+- `scripts/package-extension.mjs` — Zero-dependency script that outputs unpacked `dist-extension/firefox/` and `dist-extension/chromium-safari/` folders for local browser testing.
 - `scripts/verify-extension.mjs` — Automated verification script for both manifests, PNG integrity, mocked Firefox/Chromium runtimes, and QR parity.
 - `scripts/generate-icons.mjs` — Deterministic zero-dependency PNG icon generator matching `extension/icons/icon.svg`.
 - `.github/workflows/deploy-pages.yml` — GitHub Actions workflow deploying the playground to GitHub Pages on pushes to `main`.

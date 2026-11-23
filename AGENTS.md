@@ -48,12 +48,13 @@ This repository houses a **cross-browser Manifest V3 extension** (`/extension/`)
    - Keep `jszip` (`src/lib/zipBuilder.ts`), `ExtensionSourceViewer`, and `InstallGuide` (`src/App.tsx`) lazily imported so the main bundle stays under Vite’s 500 kB chunk warning threshold.
    - Keep `.github/workflows/deploy-pages.yml` working both with and without `package-lock.json` (`npm ci` when present, `npm install` otherwise), and avoid adding unused packages that create peer conflicts during clean CI installs.
 
-## Verification Commands
+## Verification & Packaging Commands
 
-Run all three commands after making changes (the GitHub Pages workflow runs all three automatically on pushes to `main`):
+Run all three verification commands after making changes (the GitHub Pages workflow runs all three automatically on pushes to `main`):
 
 ```bash
-npm run verify:extension  # Validates Firefox & Chromium/Safari manifests, PNG icons, mocked runtimes, QR parity, and contrast guard
-npm run lint              # TypeScript type-check (tsc --noEmit)
-npm run build             # Vite production bundle (should finish with zero warnings)
+npm run verify:extension   # Validates Firefox & Chromium/Safari manifests, PNG icons, mocked runtimes, QR parity, and contrast guard
+npm run lint               # TypeScript type-check (tsc --noEmit)
+npm run build              # Vite production bundle (should finish with zero warnings)
+npm run package:extension  # Optional: outputs unpacked dist-extension/{firefox,chromium-safari}/ folders for local testing
 ```
