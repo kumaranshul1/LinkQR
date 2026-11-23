@@ -1,9 +1,10 @@
 /**
- * Firefox WebExtension Theme (`browser.theme.getCurrent()`) color resolution
- * and WCAG contrast guard for guaranteed QR camera scannability.
+ * Cross-browser theme resolution (`browser.theme.getCurrent()` on Firefox and
+ * `prefers-color-scheme` on Chromium & Safari) plus WCAG contrast guard for
+ * guaranteed QR camera scannability.
  */
 
-export interface FirefoxThemeColors {
+export interface BrowserChromeColors {
   frame: string;
   tab_background_text: string;
   toolbar: string;
@@ -19,13 +20,17 @@ export interface FirefoxThemeColors {
   popup_highlight_text: string;
 }
 
+export type FirefoxThemeColors = BrowserChromeColors;
+
 export interface FirefoxThemePreset {
   id: string;
   name: string;
   description: string;
   isDarkChrome: boolean;
-  colors: FirefoxThemeColors;
+  colors: BrowserChromeColors;
 }
+
+export type OsAppearance = 'light' | 'dark';
 
 export interface ResolvedCardTheme {
   cardBg: string;
@@ -146,6 +151,72 @@ export const FIREFOX_THEME_PRESETS: readonly FirefoxThemePreset[] = [
   },
 ];
 
+export const CHROMIUM_CHROME_COLORS: Record<OsAppearance, BrowserChromeColors> = {
+  light: {
+    frame: '#DEE1E6',
+    tab_background_text: '#202124',
+    toolbar: '#FFFFFF',
+    toolbar_text: '#202124',
+    toolbar_field: '#F1F3F4',
+    toolbar_field_text: '#202124',
+    toolbar_field_border: '#DADCE0',
+    toolbar_bottom_separator: '#DADCE0',
+    popup: '#FFFFFF',
+    popup_text: '#202124',
+    popup_border: '#DADCE0',
+    popup_highlight: '#E8F0FE',
+    popup_highlight_text: '#1967D2',
+  },
+  dark: {
+    frame: '#202124',
+    tab_background_text: '#E8EAED',
+    toolbar: '#35363A',
+    toolbar_text: '#E8EAED',
+    toolbar_field: '#202124',
+    toolbar_field_text: '#E8EAED',
+    toolbar_field_border: '#3C4043',
+    toolbar_bottom_separator: '#3C4043',
+    popup: '#202124',
+    popup_text: '#F1F3F4',
+    popup_border: '#3C4043',
+    popup_highlight: '#3C4043',
+    popup_highlight_text: '#FFFFFF',
+  },
+};
+
+export const SAFARI_CHROME_COLORS: Record<OsAppearance, BrowserChromeColors> = {
+  light: {
+    frame: '#ECECEE',
+    tab_background_text: '#1D1D1F',
+    toolbar: '#F5F5F7',
+    toolbar_text: '#1D1D1F',
+    toolbar_field: '#E5E5EA',
+    toolbar_field_text: '#1D1D1F',
+    toolbar_field_border: '#D1D1D6',
+    toolbar_bottom_separator: '#D1D1D6',
+    popup: '#FFFFFF',
+    popup_text: '#1D1D1F',
+    popup_border: '#D1D1D6',
+    popup_highlight: '#007AFF',
+    popup_highlight_text: '#FFFFFF',
+  },
+  dark: {
+    frame: '#262628',
+    tab_background_text: '#F5F5F7',
+    toolbar: '#323234',
+    toolbar_text: '#F5F5F7',
+    toolbar_field: '#262628',
+    toolbar_field_text: '#F5F5F7',
+    toolbar_field_border: '#48484A',
+    toolbar_bottom_separator: '#48484A',
+    popup: '#202124',
+    popup_text: '#F1F3F4',
+    popup_border: '#3C4043',
+    popup_highlight: '#0A84FF',
+    popup_highlight_text: '#FFFFFF',
+  },
+};
+
 interface Rgb {
   r: number;
   g: number;
@@ -156,7 +227,6 @@ export function parseCssColor(input: string | undefined): Rgb | null {
   if (!input) return null;
   const trimmed = input.trim();
 
-  // Hex (#RGB or #RRGGBB or #RRGGBBAA)
   if (trimmed.startsWith('#')) {
     const hex = trimmed.slice(1);
     if (hex.length === 3) {
@@ -175,7 +245,6 @@ export function parseCssColor(input: string | undefined): Rgb | null {
     }
   }
 
-  // rgb(...) / rgba(...)
   const match = trimmed.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
   if (match) {
     return {
@@ -209,16 +278,16 @@ function withAlpha(rgb: Rgb, alpha: number): string {
 }
 
 /**
- * Resolves Firefox `theme.colors` into floating QR card colors while guaranteeing
- * that phone cameras always see dark modules on a bright background (>= 7:1 contrast).
+ * Resolves Firefox `theme.colors` or OS light/dark fallback (`colors = null`)
+ * into floating QR card colors while guaranteeing dark modules on a bright surface (>= 7:1).
  */
 export function resolveCardTheme(
-  colors: Partial<FirefoxThemeColors> | null | undefined,
+  colors: Partial<BrowserChromeColors> | null | undefined,
   prefersDark = false
 ): ResolvedCardTheme {
-  const fallbackBg = prefersDark ? '#2B2A33' : '#FFFFFF';
-  const fallbackText = prefersDark ? '#FBFBFE' : '#15141A';
-  const fallbackBorder = prefersDark ? '#52525E' : '#D7D7DB';
+  const fallbackBg = prefersDark ? '#202124' : '#FFFFFF';
+  const fallbackText = prefersDark ? '#F1F3F4' : '#15141A';
+  const fallbackBorder = prefersDark ? '#3C4043' : '#D7D7DB';
 
   const cardBg = colors?.popup || colors?.toolbar || colors?.frame || fallbackBg;
   const cardText =
@@ -235,8 +304,6 @@ export function resolveCardTheme(
     const fgLum = relativeLuminance(fgRgb);
     const ratio = contrastRatio(bgRgb, fgRgb);
 
-    // Native theme QR rendering is safe only when the surface is bright, ink is dark,
-    // and contrast is high enough (>= 7:1) for reliable low-light phone scanning.
     if (bgLum > 0.65 && bgLum > fgLum && ratio >= 7.0) {
       return {
         cardBg,
@@ -251,7 +318,6 @@ export function resolveCardTheme(
     }
   }
 
-  // Dark or colorful themes keep their themed card frame and place a crisp white scan plate behind the QR matrix.
   return {
     cardBg,
     cardText,

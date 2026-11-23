@@ -1,12 +1,15 @@
 /**
- * LinkQR Content Script — Tracks right-click coordinates and mounts a Shadow DOM
- * floating QR card styled with the user's active Firefox theme colors.
+ * LinkQR Content Script (Cross-Browser Manifest V3 — Firefox, Chromium & Safari)
+ * Tracks right-click coordinates and mounts a Shadow DOM floating QR card styled
+ * with active Firefox theme colors when available, or OS/browser light & dark mode.
  * Uses Project Nayuki's MIT-licensed qrcodegen library with free ECC boosting.
  */
 
 (() => {
   if (window.__LINKQR_INITIALIZED__) return;
   window.__LINKQR_INITIALIZED__ = true;
+
+  const extApi = typeof globalThis.browser !== "undefined" ? globalThis.browser : globalThis.chrome;
 
   const HOST_ID = "linkqr-floating-overlay-host";
   const CARD_WIDTH = 248;
@@ -92,13 +95,13 @@
 
     const cardBg =
       (colors && (colors.popup || colors.toolbar || colors.frame)) ||
-      (prefersDark ? "#2B2A33" : "#FFFFFF");
+      (prefersDark ? "#202124" : "#FFFFFF");
     const cardText =
       (colors && (colors.popup_text || colors.toolbar_text || colors.tab_background_text)) ||
-      (prefersDark ? "#FBFBFE" : "#15141A");
+      (prefersDark ? "#F1F3F4" : "#15141A");
     const cardBorder =
       (colors && (colors.popup_border || colors.toolbar_bottom_separator)) ||
-      (prefersDark ? "#52525E" : "#D7D7DB");
+      (prefersDark ? "#3C4043" : "#D7D7DB");
 
     const bgRgb = parseCssColor(cardBg);
     const fgRgb = parseCssColor(cardText);
@@ -140,11 +143,11 @@
     let rect = lastAnchorRect;
     if (
       typeof targetElementId === "number" &&
-      typeof browser !== "undefined" &&
-      browser.menus &&
-      typeof browser.menus.getTargetElement === "function"
+      extApi &&
+      extApi.menus &&
+      typeof extApi.menus.getTargetElement === "function"
     ) {
-      const el = browser.menus.getTargetElement(targetElementId);
+      const el = extApi.menus.getTargetElement(targetElementId);
       if (el && typeof el.getBoundingClientRect === "function") {
         const targetRect = el.getBoundingClientRect();
         if (targetRect.width > 0 || targetRect.height > 0) {
@@ -377,7 +380,7 @@
     document.addEventListener("mousedown", handleOutsideClick, true);
   }
 
-  browser.runtime.onMessage.addListener((message) => {
+  extApi.runtime.onMessage.addListener((message) => {
     if (message && message.type === "LINKQR_SHOW" && typeof message.payload === "string") {
       showOverlay(message);
     }

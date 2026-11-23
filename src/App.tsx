@@ -10,12 +10,22 @@ import {
   X,
 } from 'lucide-react';
 import { FirefoxSandbox } from './components/FirefoxSandbox';
-import { InstallGuide } from './components/InstallGuide';
+import {
+  BROWSER_TARGETS,
+  BrowserTarget,
+  ExtensionBundleId,
+} from './lib/browserTargets';
 import { downloadExtensionZip } from './lib/zipBuilder';
 
 const ExtensionSourceViewer = lazy(() =>
   import('./components/ExtensionSourceViewer').then((m) => ({
     default: m.ExtensionSourceViewer,
+  }))
+);
+
+const InstallGuide = lazy(() =>
+  import('./components/InstallGuide').then((m) => ({
+    default: m.InstallGuide,
   }))
 );
 
@@ -29,17 +39,20 @@ const NAV_ITEMS: { id: WorkspaceTab; label: string; icon: typeof Monitor }[] = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('sandbox');
+  const [browserTarget, setBrowserTarget] = useState<BrowserTarget>('firefox');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'done'>('idle');
 
   const activeNavLabel =
     NAV_ITEMS.find((item) => item.id === activeTab)?.label ?? 'Live Sandbox';
+  const activeTargetMeta = BROWSER_TARGETS[browserTarget];
 
-  const handleDownload = async () => {
+  const handleDownload = async (bundleOverride?: ExtensionBundleId) => {
     if (downloadState === 'downloading') return;
+    const bundleId = bundleOverride ?? activeTargetMeta.bundleId;
     setDownloadState('downloading');
     try {
-      await downloadExtensionZip();
+      await downloadExtensionZip(bundleId);
       setDownloadState('done');
       window.setTimeout(() => setDownloadState('idle'), 2200);
     } catch {
@@ -94,8 +107,8 @@ export default function App() {
         </div>
 
         <div className="border-t border-slate-200 px-6 py-4 text-xs leading-relaxed text-slate-500">
-          <div className="font-medium text-slate-700">Firefox Manifest V3</div>
-          <div className="mt-1">Firefox 109+ · Theme API · Offline QR</div>
+          <div className="font-medium text-slate-700">Cross-Browser Manifest V3</div>
+          <div className="mt-1">Firefox · Chromium · Safari · Offline QR</div>
         </div>
       </aside>
 
@@ -126,7 +139,7 @@ export default function App() {
 
           <button
             type="button"
-            onClick={handleDownload}
+            onClick={() => handleDownload()}
             disabled={downloadState === 'downloading'}
             className="inline-flex items-center gap-2 rounded-lg bg-[#E85D2A] px-4 py-2 text-xs font-medium text-white whitespace-nowrap shrink-0 transition-colors hover:bg-[#D14F20] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E85D2A] disabled:opacity-60 sm:text-sm"
           >
@@ -138,7 +151,7 @@ export default function App() {
             ) : (
               <>
                 <Download className="h-4 w-4" />
-                Download Extension (.zip)
+                {activeTargetMeta.downloadLabel}
               </>
             )}
           </button>
@@ -176,7 +189,12 @@ export default function App() {
 
         {/* Active Workspace Viewport */}
         <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {activeTab === 'sandbox' && <FirefoxSandbox />}
+          {activeTab === 'sandbox' && (
+            <FirefoxSandbox
+              browserTarget={browserTarget}
+              onBrowserTargetChange={setBrowserTarget}
+            />
+          )}
           {activeTab === 'source' && (
             <Suspense
               fallback={
@@ -185,11 +203,27 @@ export default function App() {
                 </div>
               }
             >
-              <ExtensionSourceViewer />
+              <ExtensionSourceViewer
+                browserTarget={browserTarget}
+                onBrowserTargetChange={setBrowserTarget}
+              />
             </Suspense>
           )}
           {activeTab === 'install' && (
-            <InstallGuide onDownload={handleDownload} downloadState={downloadState} />
+            <Suspense
+              fallback={
+                <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500">
+                  Loading install guide…
+                </div>
+              }
+            >
+              <InstallGuide
+                browserTarget={browserTarget}
+                onBrowserTargetChange={setBrowserTarget}
+                onDownload={handleDownload}
+                downloadState={downloadState}
+              />
+            </Suspense>
           )}
         </main>
       </div>

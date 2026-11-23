@@ -1,6 +1,6 @@
 {
   "name": "LinkQR",
-  "description": "Manifest V3 Firefox extension that displays a theme-matched floating QR code when you right-click any link, text selection, or webpage, complete with an interactive Firefox sandbox and one-click ZIP packager.",
+  "description": "Cross-browser Manifest V3 extension for Firefox, Chrome, Edge, Brave, and Safari that displays an offline floating QR code when you right-click any link, text selection, or webpage, complete with an interactive sandbox and one-click ZIP packager.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

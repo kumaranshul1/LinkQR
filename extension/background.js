@@ -1,8 +1,12 @@
 /**
- * LinkQR Background Event Page (Manifest V3 — Firefox 109+)
- * Registers context menus for links, selected text, and pages, resolves the user's
- * active Firefox theme via browser.theme.getCurrent(), and triggers the floating card.
+ * LinkQR Background Script (Cross-Browser Manifest V3 — Firefox, Chromium & Safari)
+ * Runs as a non-persistent event page in Firefox and a service worker in Chromium/Safari.
+ * Registers context menus for links, selected text, and pages, resolves active Firefox
+ * theme colors when available, and sends the payload to the active tab's content script.
  */
+
+const hasBrowserNamespace = typeof globalThis.browser !== "undefined";
+const extApi = hasBrowserNamespace ? globalThis.browser : globalThis.chrome;
 
 const MENU_IDS = {
   LINK: "linkqr-show-link",
@@ -10,42 +14,95 @@ const MENU_IDS = {
   PAGE: "linkqr-show-page",
 };
 
-function registerContextMenus() {
-  browser.contextMenus.removeAll().then(() => {
-    browser.contextMenus.create({
-      id: MENU_IDS.LINK,
-      title: "Show QR Code for Link",
-      contexts: ["link"],
-    });
-
-    browser.contextMenus.create({
-      id: MENU_IDS.SELECTION,
-      title: "Show QR Code for Selection",
-      contexts: ["selection"],
-    });
-
-    browser.contextMenus.create({
-      id: MENU_IDS.PAGE,
-      title: "Show QR Code for This Page",
-      contexts: ["page"],
+function removeAllContextMenus() {
+  if (hasBrowserNamespace) {
+    return extApi.contextMenus.removeAll();
+  }
+  return new Promise((resolve) => {
+    extApi.contextMenus.removeAll(() => {
+      void extApi.runtime.lastError;
+      resolve();
     });
   });
 }
 
-// Top-level MV3 event listeners (required for non-persistent Firefox event pages)
-browser.runtime.onInstalled.addListener(registerContextMenus);
-browser.runtime.onStartup.addListener(registerContextMenus);
+function createContextMenu(properties) {
+  if (hasBrowserNamespace) {
+    extApi.contextMenus.create(properties);
+    return;
+  }
+  extApi.contextMenus.create(properties, () => {
+    void extApi.runtime.lastError;
+  });
+}
+
+function registerContextMenus() {
+  Promise.resolve(removeAllContextMenus())
+    .then(() => {
+      createContextMenu({
+        id: MENU_IDS.LINK,
+        title: "Show QR Code for Link",
+        contexts: ["link"],
+      });
+
+      createContextMenu({
+        id: MENU_IDS.SELECTION,
+        title: "Show QR Code for Selection",
+        contexts: ["selection"],
+      });
+
+      createContextMenu({
+        id: MENU_IDS.PAGE,
+        title: "Show QR Code for This Page",
+        contexts: ["page"],
+      });
+    })
+    .catch((err) => {
+      console.warn("LinkQR failed to register context menus:", err);
+    });
+}
+
+// Top-level MV3 event listeners (required for both Firefox event pages and MV3 service workers)
+extApi.runtime.onInstalled.addListener(registerContextMenus);
+if (extApi.runtime.onStartup) {
+  extApi.runtime.onStartup.addListener(registerContextMenus);
+}
 
 async function getActiveThemeColors(windowId) {
+  if (!extApi.theme || typeof extApi.theme.getCurrent !== "function") {
+    return null;
+  }
   try {
-    const themeInfo = await browser.theme.getCurrent(windowId);
+    const themeInfo = await extApi.theme.getCurrent(windowId);
     return themeInfo && themeInfo.colors ? themeInfo.colors : null;
   } catch {
     return null;
   }
 }
 
-browser.contextMenus.onClicked.addListener(async (info, tab) => {
+function sendMessageToTab(tabId, message) {
+  if (hasBrowserNamespace) {
+    return extApi.tabs.sendMessage(tabId, message);
+  }
+  return new Promise((resolve, reject) => {
+    extApi.tabs.sendMessage(tabId, message, (response) => {
+      if (extApi.runtime.lastError) {
+        reject(new Error(extApi.runtime.lastError.message));
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+function injectContentScripts(tabId) {
+  return extApi.scripting.executeScript({
+    target: { tabId },
+    files: ["qrcodegen.js", "content.js"],
+  });
+}
+
+extApi.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab || typeof tab.id !== "number") return;
 
   let payload = "";
@@ -74,15 +131,12 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
   };
 
   try {
-    await browser.tabs.sendMessage(tab.id, message);
+    await sendMessageToTab(tab.id, message);
   } catch {
     // Fallback for tabs that were already open prior to installing or reloading LinkQR
     try {
-      await browser.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["qrcodegen.js", "content.js"],
-      });
-      await browser.tabs.sendMessage(tab.id, message);
+      await injectContentScripts(tab.id);
+      await sendMessageToTab(tab.id, message);
     } catch (err) {
       console.warn("LinkQR cannot display on restricted browser pages:", err);
     }

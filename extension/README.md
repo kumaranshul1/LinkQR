@@ -1,28 +1,31 @@
-# LinkQR — Firefox Extension (Manifest V3)
+# LinkQR — Cross-Browser Extension (Manifest V3)
 
-Right-click any link, highlighted text selection, or webpage in Firefox to display a crisp, theme-matched floating QR code right beside your cursor.
+Right-click any link, highlighted text selection, or webpage to display a crisp, offline floating QR code right beside your cursor for instant phone scanning.
 
-## Quick Temporary Install (Firefox 109+)
+## Installation
 
-1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
-2. Click **Load Temporary Add-on...**
-3. Select the `manifest.json` file inside this folder.
-4. Right-click any link, highlighted text, or page background and select **Show QR Code**.
+### Firefox (109+)
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on...** and select `manifest.json`.
+3. For permanent signing, upload the Firefox `.zip` under **On your own** at https://addons.mozilla.org/developers/ to obtain a signed `.xpi`.
 
-## Permanent Installation (Signed .xpi)
+### Chrome, Edge, Brave, Opera, Vivaldi & Arc
+1. Extract the Chromium `.zip` archive to a local folder.
+2. Open `chrome://extensions` (or `edge://extensions` / `brave://extensions`).
+3. Enable **Developer mode**, click **Load unpacked**, and select the extracted folder.
 
-Firefox requires extensions installed permanently on standard Release builds to be signed by Mozilla Add-ons (AMO):
-
-1. Create a free developer account at https://addons.mozilla.org/developers/
-2. Zip the contents of this folder (so `manifest.json` is at the archive root) and upload it under **On your own** (unlisted self-distribution) for instant automated signing.
-3. Download the signed `.xpi` file and drag it into Firefox to install permanently.
+### Safari (macOS / iOS)
+1. Extract the Chromium/Safari `.zip` archive to a local folder (e.g. `./linkqr-safari`).
+2. Run Apple's Web Extension converter in Terminal (requires Xcode):
+   `xcrun safari-web-extension-converter ./linkqr-safari --app-name LinkQR --bundle-identifier com.local.linkqr`
+3. Build and run the generated Xcode project, then enable **LinkQR** in Safari → Settings → Extensions.
 
 ## Permissions Used
 
-- `contextMenus`: Adds the right-click menu entries for links, selections, and pages.
-- `activeTab` & `scripting`: Allows displaying the QR card even on tabs opened before installation.
-- `theme`: Reads your active Firefox theme colors (`popup`, `popup_text`, `popup_border`) so the floating card blends naturally with your browser.
+- `contextMenus`: Adds right-click menu entries for links, selections, and pages.
+- `activeTab` & `scripting`: Allows displaying the QR card immediately even on tabs opened before installation.
+- `theme` *(Firefox package only)*: Reads active Firefox theme colors (`popup`, `popup_text`, `popup_border`). On Chromium and Safari, LinkQR automatically follows your browser/OS light and dark mode via `prefers-color-scheme`.
 
 ## Credits
 
-QR code generation is powered offline by Project Nayuki's [QR-Code-generator](https://github.com/nayuki/QR-Code-generator) (MIT License) with automatic error-correction boosting (`boostEcl`).
+QR code generation runs 100% offline using Project Nayuki's [QR-Code-generator](https://github.com/nayuki/QR-Code-generator) (MIT License) with automatic error-correction boosting (`boostEcl`).

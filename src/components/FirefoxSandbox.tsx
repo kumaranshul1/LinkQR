@@ -6,17 +6,33 @@ import {
   Globe,
   Link2,
   Lock,
+  Moon,
   Plus,
   QrCode,
   RotateCw,
+  Sun,
   TextSelect,
 } from 'lucide-react';
 import {
+  BROWSER_TARGETS,
+  BROWSER_TARGET_LIST,
+  BrowserTarget,
+} from '../lib/browserTargets';
+import {
+  BrowserChromeColors,
+  CHROMIUM_CHROME_COLORS,
   FIREFOX_THEME_PRESETS,
   FirefoxThemePreset,
+  OsAppearance,
+  SAFARI_CHROME_COLORS,
   resolveCardTheme,
 } from '../lib/themeResolver';
 import { FloatingQrCard, FloatingQrState } from './FloatingQrCard';
+
+interface FirefoxSandboxProps {
+  browserTarget: BrowserTarget;
+  onBrowserTargetChange: (target: BrowserTarget) => void;
+}
 
 interface SampleLink {
   id: string;
@@ -42,10 +58,10 @@ const INITIAL_LINKS: SampleLink[] = [
     note: 'developer.mozilla.org',
   },
   {
-    id: 'amo-hub',
-    label: 'Mozilla Add-ons Developer Hub',
-    url: 'https://addons.mozilla.org/en-US/developers/',
-    note: 'addons.mozilla.org',
+    id: 'chrome-mv3',
+    label: 'Chrome Extensions Manifest V3 Overview',
+    url: 'https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3',
+    note: 'developer.chrome.com',
   },
   {
     id: 'wiki-qr',
@@ -55,10 +71,14 @@ const INITIAL_LINKS: SampleLink[] = [
   },
 ];
 
-export function FirefoxSandbox() {
+export function FirefoxSandbox({
+  browserTarget,
+  onBrowserTargetChange,
+}: FirefoxSandboxProps) {
   const [selectedThemeId, setSelectedThemeId] = useState<string>(FIREFOX_THEME_PRESETS[0].id);
-  const [pageUrl, setPageUrl] = useState<string>('https://handbook.example.org/firefox-handoff');
-  const [urlInput, setUrlInput] = useState<string>('https://handbook.example.org/firefox-handoff');
+  const [osAppearance, setOsAppearance] = useState<OsAppearance>('light');
+  const [pageUrl, setPageUrl] = useState<string>('https://handbook.example.org/browser-handoff');
+  const [urlInput, setUrlInput] = useState<string>('https://handbook.example.org/browser-handoff');
   const [customLinkInput, setCustomLinkInput] = useState<string>('');
   const [customLinkError, setCustomLinkError] = useState<string>('');
   const [links, setLinks] = useState<SampleLink[]>(INITIAL_LINKS);
@@ -71,16 +91,27 @@ export function FirefoxSandbox() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [viewportBounds, setViewportBounds] = useState({ width: 920, height: 520 });
 
-  const activeTheme: FirefoxThemePreset = useMemo(
+  const activeTargetMeta = BROWSER_TARGETS[browserTarget];
+
+  const activeFirefoxTheme: FirefoxThemePreset = useMemo(
     () =>
       FIREFOX_THEME_PRESETS.find((t) => t.id === selectedThemeId) ?? FIREFOX_THEME_PRESETS[0],
     [selectedThemeId]
   );
 
-  const resolvedCardTheme = useMemo(
-    () => resolveCardTheme(activeTheme.colors, activeTheme.isDarkChrome),
-    [activeTheme]
-  );
+  const activeChromeColors: BrowserChromeColors = useMemo(() => {
+    if (browserTarget === 'firefox') return activeFirefoxTheme.colors;
+    if (browserTarget === 'chromium') return CHROMIUM_CHROME_COLORS[osAppearance];
+    return SAFARI_CHROME_COLORS[osAppearance];
+  }, [browserTarget, activeFirefoxTheme, osAppearance]);
+
+  const resolvedCardTheme = useMemo(() => {
+    if (browserTarget === 'firefox') {
+      return resolveCardTheme(activeFirefoxTheme.colors, activeFirefoxTheme.isDarkChrome);
+    }
+    // Chromium and Safari do not expose custom theme APIs; content.js falls back to prefers-color-scheme
+    return resolveCardTheme(null, osAppearance === 'dark');
+  }, [browserTarget, activeFirefoxTheme, osAppearance]);
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -127,7 +158,6 @@ export function FirefoxSandbox() {
     const relX = event.clientX - bounds.left;
     const relY = event.clientY - bounds.top;
 
-    // 1. Check if the user right-clicked a link
     const anchorEl = (event.target as HTMLElement | null)?.closest('a[href]') as
       | HTMLAnchorElement
       | null;
@@ -145,7 +175,6 @@ export function FirefoxSandbox() {
       return;
     }
 
-    // 2. Check if the user has highlighted text inside the sandbox
     const selectionText = window.getSelection()?.toString().trim() ?? '';
     if (selectionText.length > 0) {
       setContextMenu({
@@ -157,7 +186,6 @@ export function FirefoxSandbox() {
       return;
     }
 
-    // 3. Default to current page URL
     setContextMenu({
       x: Math.min(relX, Math.max(12, bounds.width - 252)),
       y: Math.min(relY, Math.max(12, bounds.height - 136)),
@@ -251,7 +279,7 @@ export function FirefoxSandbox() {
       const snippet =
         activeSelection && activeSelection.length > 0
           ? activeSelection
-          : 'WIFI:T:WPA;S:StudioGuest;P:firefox-handoff-2026;;';
+          : 'WIFI:T:WPA;S:StudioGuest;P:linkqr-handoff-2026;;';
       setQrState({
         payload: snippet,
         triggerType: 'selection',
@@ -282,63 +310,135 @@ export function FirefoxSandbox() {
         ? 'Copy Selection'
         : 'Copy Page URL';
 
+  const browserTabLabel =
+    browserTarget === 'firefox'
+      ? 'Firefox Reading List'
+      : browserTarget === 'chromium'
+        ? 'Chrome Reading List'
+        : 'Safari Reading List';
+
   return (
     <div className="space-y-6">
-      {/* Intro + Firefox Theme Switcher */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Interactive Firefox Sandbox
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Right-click any link, highlight text, or right-click empty space inside the browser frame
-            to scan a live QR code with your phone.
-          </p>
-        </div>
+      {/* Intro + Browser Target & Appearance Controls */}
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Interactive Browser Sandbox
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Right-click any link, highlight text, or right-click empty space inside the browser
+              frame to scan a live QR code with your phone.
+            </p>
+          </div>
 
-        {/* Simulated Firefox Theme Preset Bar */}
-        <div className="flex flex-col items-start gap-1.5 lg:items-end">
+          {/* Target Browser Selector */}
           <div
-            className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1"
+            className="flex items-center gap-1 self-start rounded-lg border border-slate-200 bg-white p-1 lg:self-auto"
             role="group"
-            aria-label="Simulated Firefox browser theme"
+            aria-label="Target browser"
           >
-            {FIREFOX_THEME_PRESETS.map((preset) => {
-              const isSelected = preset.id === activeTheme.id;
+            {BROWSER_TARGET_LIST.map((target) => {
+              const isSelected = target.id === browserTarget;
               return (
                 <button
-                  key={preset.id}
+                  key={target.id}
                   type="button"
-                  onClick={() => setSelectedThemeId(preset.id)}
-                  className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#E85D2A] ${
+                  onClick={() => onBrowserTargetChange(target.id)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#E85D2A] ${
                     isSelected
-                      ? 'bg-slate-900 text-white'
+                      ? 'bg-[#E85D2A] text-white'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                   }`}
                 >
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-[3px] border border-black/20"
-                    style={{ backgroundColor: preset.colors.popup }}
-                    aria-hidden="true"
-                  />
-                  {preset.name}
+                  {target.label}
                 </button>
               );
             })}
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="font-mono tabular-nums">popup {activeTheme.colors.popup}</span>
+        </div>
+
+        {/* Appearance / Theme Bar */}
+        <div className="flex flex-col gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          {browserTarget === 'firefox' ? (
+            <div
+              className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1"
+              role="group"
+              aria-label="Simulated Firefox browser theme"
+            >
+              {FIREFOX_THEME_PRESETS.map((preset) => {
+                const isSelected = preset.id === activeFirefoxTheme.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => setSelectedThemeId(preset.id)}
+                    className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#E85D2A] ${
+                      isSelected
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-[3px] border border-black/20"
+                      style={{ backgroundColor: preset.colors.popup }}
+                      aria-hidden="true"
+                    />
+                    {preset.name}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-1 self-start rounded-lg border border-slate-200 bg-white p-1"
+              role="group"
+              aria-label="Simulated browser and OS appearance"
+            >
+              <button
+                type="button"
+                onClick={() => setOsAppearance('light')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                  osAppearance === 'light'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <Sun className="h-3.5 w-3.5" />
+                OS Light
+              </button>
+              <button
+                type="button"
+                onClick={() => setOsAppearance('dark')}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                  osAppearance === 'dark'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <Moon className="h-3.5 w-3.5" />
+                OS Dark
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="font-mono tabular-nums">
+              {browserTarget === 'firefox'
+                ? `popup ${activeFirefoxTheme.colors.popup}`
+                : `prefers-color-scheme: ${osAppearance}`}
+            </span>
             <span aria-hidden="true">·</span>
             <span>
               {resolvedCardTheme.usedContrastPlate
                 ? 'White scan plate active for camera contrast'
-                : `Native theme ink (${resolvedCardTheme.contrastRatio}:1 contrast)`}
+                : `Native surface contrast (${resolvedCardTheme.contrastRatio}:1)`}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Simulated Firefox Browser Window */}
+      {/* Simulated Browser Window */}
       <div
         className="overflow-hidden rounded-xl border border-slate-300/90 bg-white"
         style={{
@@ -349,8 +449,8 @@ export function FirefoxSandbox() {
         <div
           className="flex items-center justify-between px-3 pt-2.5 pb-0 transition-colors duration-150"
           style={{
-            backgroundColor: activeTheme.colors.frame,
-            color: activeTheme.colors.tab_background_text,
+            backgroundColor: activeChromeColors.frame,
+            color: activeChromeColors.tab_background_text,
           }}
         >
           <div className="flex items-center gap-3">
@@ -360,18 +460,20 @@ export function FirefoxSandbox() {
               <span className="h-2.5 w-2.5 rounded-full bg-current opacity-25" />
             </div>
             <div
-              className="flex max-w-[240px] items-center gap-2 rounded-t-lg px-3.5 py-2 text-xs font-medium"
+              className={`flex max-w-[240px] items-center gap-2 px-3.5 py-2 text-xs font-medium ${
+                browserTarget === 'safari' ? 'mb-1.5 rounded-md' : 'rounded-t-lg'
+              }`}
               style={{
-                backgroundColor: activeTheme.colors.toolbar,
-                color: activeTheme.colors.toolbar_text,
+                backgroundColor: activeChromeColors.toolbar,
+                color: activeChromeColors.toolbar_text,
               }}
             >
               <Globe className="h-3.5 w-3.5 shrink-0 opacity-70" />
-              <span className="truncate">Firefox Reading List</span>
+              <span className="truncate">{browserTabLabel}</span>
             </div>
           </div>
           <div className="hidden pb-2 text-xs opacity-65 sm:block">
-            Firefox 109+ · Theme API Active
+            {activeTargetMeta.engineSummary}
           </div>
         </div>
 
@@ -379,9 +481,9 @@ export function FirefoxSandbox() {
         <div
           className="flex flex-wrap items-center gap-2.5 px-3 py-2 transition-colors duration-150"
           style={{
-            backgroundColor: activeTheme.colors.toolbar,
-            color: activeTheme.colors.toolbar_text,
-            borderBottom: `1px solid ${activeTheme.colors.toolbar_bottom_separator}`,
+            backgroundColor: activeChromeColors.toolbar,
+            color: activeChromeColors.toolbar_text,
+            borderBottom: `1px solid ${activeChromeColors.toolbar_bottom_separator}`,
           }}
         >
           <div className="flex items-center gap-1 opacity-60" aria-hidden="true">
@@ -396,16 +498,23 @@ export function FirefoxSandbox() {
             </span>
           </div>
 
-          <form onSubmit={handleUrlSubmit} className="min-w-[200px] flex-1">
+          <form
+            onSubmit={handleUrlSubmit}
+            className={`min-w-[200px] flex-1 ${
+              browserTarget === 'safari' ? 'mx-auto max-w-xl' : ''
+            }`}
+          >
             <label className="sr-only" htmlFor="sandbox-address-bar">
-              Simulated Firefox current page URL
+              Simulated current page URL
             </label>
             <div
-              className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors"
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                browserTarget === 'chromium' ? 'rounded-full' : 'rounded-md'
+              }`}
               style={{
-                backgroundColor: activeTheme.colors.toolbar_field,
-                color: activeTheme.colors.toolbar_field_text,
-                border: `1px solid ${activeTheme.colors.toolbar_field_border}`,
+                backgroundColor: activeChromeColors.toolbar_field,
+                color: activeChromeColors.toolbar_field_text,
+                border: `1px solid ${activeChromeColors.toolbar_field_border}`,
               }}
             >
               <Lock className="h-3 w-3 shrink-0 opacity-60" />
@@ -415,20 +524,21 @@ export function FirefoxSandbox() {
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 onBlur={handleUrlSubmit}
-                className="w-full bg-transparent font-mono text-xs outline-none"
-                style={{ color: activeTheme.colors.toolbar_field_text }}
+                className={`w-full bg-transparent font-mono text-xs outline-none ${
+                  browserTarget === 'safari' ? 'text-center' : ''
+                }`}
+                style={{ color: activeChromeColors.toolbar_field_text }}
                 aria-label="Current page URL"
               />
             </div>
           </form>
 
-          {/* Extension toolbar icon indicator (clickable to test current page trigger) */}
           <button
             type="button"
             onClick={() => handleQuickTrigger('page')}
             title="Show QR code for current page URL"
             className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#E85D2A]"
-            style={{ color: activeTheme.colors.toolbar_text }}
+            style={{ color: activeChromeColors.toolbar_text }}
           >
             <QrCode className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">LinkQR</span>
@@ -441,7 +551,7 @@ export function FirefoxSandbox() {
           onContextMenu={handleViewportContextMenu}
           className="relative min-h-[520px] bg-white px-6 py-7 sm:px-10"
         >
-          {/* Quick-test accessibility strip (for touch/trackpad or rapid testing) */}
+          {/* Quick-test accessibility strip */}
           <div className="mb-7 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <span className="font-medium text-slate-700">Right-click anywhere below</span>
@@ -480,12 +590,10 @@ export function FirefoxSandbox() {
             {/* Left column: Testable links list + custom URL input */}
             <div className="space-y-5 lg:col-span-7">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  1. Right-click a link
-                </h2>
+                <h2 className="text-lg font-semibold text-slate-900">1. Right-click a link</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Right-click any link below to open the Firefox menu and display its QR code right
-                  next to your cursor.
+                  Right-click any link below to open the {activeTargetMeta.shortLabel} context menu
+                  and display its QR code right next to your cursor.
                 </p>
               </div>
 
@@ -571,7 +679,7 @@ export function FirefoxSandbox() {
                 <p>
                   Highlight this sample Wi-Fi payload to test selection encoding:{' '}
                   <span className="font-mono text-xs text-slate-900">
-                    WIFI:T:WPA;S:StudioGuest;P:firefox-handoff-2026;;
+                    WIFI:T:WPA;S:StudioGuest;P:linkqr-handoff-2026;;
                   </span>
                 </p>
                 <p>
@@ -588,8 +696,8 @@ export function FirefoxSandbox() {
                   3. Right-click empty page space
                 </h3>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  Right-clicking anywhere outside a link or selection encodes the current Firefox
-                  address bar URL (<span className="font-mono text-slate-700">{pageUrl}</span>).
+                  Right-clicking anywhere outside a link or selection encodes the current address
+                  bar URL (<span className="font-mono text-slate-700">{pageUrl}</span>).
                 </p>
               </div>
             </div>
@@ -604,19 +712,19 @@ export function FirefoxSandbox() {
             </div>
           )}
 
-          {/* Simulated Firefox Right-Click Context Menu */}
+          {/* Simulated Browser Right-Click Context Menu */}
           {contextMenu && (
             <div
               ref={menuRef}
               role="menu"
-              aria-label="Firefox context menu"
+              aria-label="Browser context menu"
               className="linkqr-animate-pop absolute z-30 w-[240px] rounded-lg py-1.5 text-xs"
               style={{
                 left: contextMenu.x,
                 top: contextMenu.y,
-                backgroundColor: activeTheme.colors.popup,
-                color: activeTheme.colors.popup_text,
-                border: `1px solid ${activeTheme.colors.popup_border}`,
+                backgroundColor: activeChromeColors.popup,
+                color: activeChromeColors.popup_text,
+                border: `1px solid ${activeChromeColors.popup_border}`,
                 boxShadow: '0 10px 26px rgba(15, 23, 42, 0.22)',
               }}
             >
@@ -625,14 +733,14 @@ export function FirefoxSandbox() {
                 role="menuitem"
                 onClick={handleShowQrFromMenu}
                 className="flex w-full items-center gap-2.5 px-3 py-2 text-left font-medium transition-colors"
-                style={{ color: activeTheme.colors.popup_text }}
+                style={{ color: activeChromeColors.popup_text }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = activeTheme.colors.popup_highlight;
-                  e.currentTarget.style.color = activeTheme.colors.popup_highlight_text;
+                  e.currentTarget.style.backgroundColor = activeChromeColors.popup_highlight;
+                  e.currentTarget.style.color = activeChromeColors.popup_highlight_text;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = activeTheme.colors.popup_text;
+                  e.currentTarget.style.color = activeChromeColors.popup_text;
                 }}
               >
                 <QrCode className="h-3.5 w-3.5 shrink-0 text-[#E85D2A]" />
@@ -641,7 +749,7 @@ export function FirefoxSandbox() {
 
               <div
                 className="my-1 h-px w-full opacity-50"
-                style={{ backgroundColor: activeTheme.colors.popup_border }}
+                style={{ backgroundColor: activeChromeColors.popup_border }}
                 role="separator"
               />
 
@@ -650,14 +758,14 @@ export function FirefoxSandbox() {
                 role="menuitem"
                 onClick={handleCopyFromMenu}
                 className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors"
-                style={{ color: activeTheme.colors.popup_text }}
+                style={{ color: activeChromeColors.popup_text }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = activeTheme.colors.popup_highlight;
-                  e.currentTarget.style.color = activeTheme.colors.popup_highlight_text;
+                  e.currentTarget.style.backgroundColor = activeChromeColors.popup_highlight;
+                  e.currentTarget.style.color = activeChromeColors.popup_highlight_text;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = activeTheme.colors.popup_text;
+                  e.currentTarget.style.color = activeChromeColors.popup_text;
                 }}
               >
                 <Copy className="h-3.5 w-3.5 shrink-0 opacity-70" />
@@ -669,14 +777,14 @@ export function FirefoxSandbox() {
                 role="menuitem"
                 onClick={handleSelectArticleText}
                 className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-colors"
-                style={{ color: activeTheme.colors.popup_text }}
+                style={{ color: activeChromeColors.popup_text }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = activeTheme.colors.popup_highlight;
-                  e.currentTarget.style.color = activeTheme.colors.popup_highlight_text;
+                  e.currentTarget.style.backgroundColor = activeChromeColors.popup_highlight;
+                  e.currentTarget.style.color = activeChromeColors.popup_highlight_text;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = activeTheme.colors.popup_text;
+                  e.currentTarget.style.color = activeChromeColors.popup_text;
                 }}
               >
                 <TextSelect className="h-3.5 w-3.5 shrink-0 opacity-70" />

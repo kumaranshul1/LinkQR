@@ -1,10 +1,12 @@
 /**
- * Automated verification script for the LinkQR Firefox Manifest V3 extension.
+ * Automated verification script for the cross-browser LinkQR Manifest V3 extension
+ * (Firefox, Chrome/Edge/Brave/Chromium, and Safari).
  * Run via: npm run verify:extension
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { encodeQr, qrToSvgPath } from '../src/lib/qrEncoder.ts';
 import { FIREFOX_THEME_PRESETS, resolveCardTheme } from '../src/lib/themeResolver.ts';
@@ -19,32 +21,85 @@ function assert(condition, message) {
   }
 }
 
-// 1. Validate extension/manifest.json structure and referenced files
-const manifestPath = path.join(extDir, 'manifest.json');
-assert(fs.existsSync(manifestPath), 'extension/manifest.json is missing');
-const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+function assertValidPng(filePath, expectedSize) {
+  const buf = fs.readFileSync(filePath);
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  for (let i = 0; i < sig.length; i++) {
+    assert(buf[i] === sig[i], `Invalid PNG signature in ${filePath}`);
+  }
+  const width = buf.readUInt32BE(16);
+  const height = buf.readUInt32BE(20);
+  assert(
+    width === expectedSize && height === expectedSize,
+    `Expected ${expectedSize}x${expectedSize} PNG in ${filePath}, got ${width}x${height}`
+  );
+}
 
-assert(manifest.manifest_version === 3, 'manifest_version must be 3');
+// 1A. Validate Firefox MV3 manifest (extension/manifest.json)
+const firefoxManifestPath = path.join(extDir, 'manifest.json');
+assert(fs.existsSync(firefoxManifestPath), 'extension/manifest.json is missing');
+const firefoxManifest = JSON.parse(fs.readFileSync(firefoxManifestPath, 'utf8'));
+
+assert(firefoxManifest.manifest_version === 3, 'Firefox manifest_version must be 3');
 assert(
-  manifest.browser_specific_settings?.gecko?.id,
+  firefoxManifest.browser_specific_settings?.gecko?.id,
   'browser_specific_settings.gecko.id is required for Firefox'
 );
 assert(
-  Array.isArray(manifest.background?.scripts) && manifest.background.scripts.length > 0,
+  Array.isArray(firefoxManifest.background?.scripts) &&
+    firefoxManifest.background.scripts.length > 0,
   'background.scripts must be defined for Firefox MV3 event page'
 );
 
 for (const perm of ['contextMenus', 'activeTab', 'scripting', 'theme']) {
   assert(
-    Array.isArray(manifest.permissions) && manifest.permissions.includes(perm),
-    `Missing required permission: ${perm}`
+    Array.isArray(firefoxManifest.permissions) && firefoxManifest.permissions.includes(perm),
+    `Firefox manifest missing required permission: ${perm}`
   );
 }
 
+// 1B. Validate Chromium & Safari MV3 manifest (extension/manifest.chromium.json)
+const chromiumManifestPath = path.join(extDir, 'manifest.chromium.json');
+assert(fs.existsSync(chromiumManifestPath), 'extension/manifest.chromium.json is missing');
+const chromiumManifest = JSON.parse(fs.readFileSync(chromiumManifestPath, 'utf8'));
+
+assert(chromiumManifest.manifest_version === 3, 'Chromium/Safari manifest_version must be 3');
+assert(
+  chromiumManifest.background?.service_worker === 'background.js',
+  'Chromium/Safari manifest must declare background.service_worker'
+);
+assert(
+  !chromiumManifest.background?.scripts,
+  'Chromium/Safari manifest must not include Firefox-only background.scripts'
+);
+assert(
+  !chromiumManifest.browser_specific_settings,
+  'Chromium/Safari manifest must not include Firefox-only browser_specific_settings'
+);
+assert(
+  !chromiumManifest.permissions?.includes('theme'),
+  'Chromium/Safari manifest must not request Firefox-only theme permission'
+);
+for (const perm of ['contextMenus', 'activeTab', 'scripting']) {
+  assert(
+    Array.isArray(chromiumManifest.permissions) && chromiumManifest.permissions.includes(perm),
+    `Chromium/Safari manifest missing required permission: ${perm}`
+  );
+}
+
+for (const size of [16, 32, 48, 128]) {
+  const relIcon = chromiumManifest.icons?.[String(size)];
+  assert(relIcon && relIcon.endsWith('.png'), `Chromium/Safari manifest missing ${size}px PNG icon`);
+  assertValidPng(path.join(extDir, relIcon), size);
+}
+
 const referencedFiles = new Set([
-  ...(manifest.background?.scripts ?? []),
-  ...(manifest.content_scripts ?? []).flatMap((cs) => cs.js ?? []),
-  ...Object.values(manifest.icons ?? {}),
+  ...(firefoxManifest.background?.scripts ?? []),
+  ...(firefoxManifest.content_scripts ?? []).flatMap((cs) => cs.js ?? []),
+  ...Object.values(firefoxManifest.icons ?? {}),
+  chromiumManifest.background?.service_worker,
+  ...(chromiumManifest.content_scripts ?? []).flatMap((cs) => cs.js ?? []),
+  ...Object.values(chromiumManifest.icons ?? {}),
 ]);
 
 for (const relPath of referencedFiles) {
@@ -52,14 +107,125 @@ for (const relPath of referencedFiles) {
   assert(fs.existsSync(fullPath), `Manifest references missing file: extension/${relPath}`);
 }
 
-// 2. Verify JS syntax of all extension scripts
-for (const jsFile of ['background.js', 'content.js', 'qrcodegen.js']) {
-  const src = fs.readFileSync(path.join(extDir, jsFile), 'utf8');
-  new Function(src);
+// 2. Verify JS syntax of all shared extension scripts
+const backgroundSrc = fs.readFileSync(path.join(extDir, 'background.js'), 'utf8');
+const contentSrc = fs.readFileSync(path.join(extDir, 'content.js'), 'utf8');
+const qrcodegenSrc = fs.readFileSync(path.join(extDir, 'qrcodegen.js'), 'utf8');
+new Function(backgroundSrc);
+new Function(contentSrc);
+new Function(qrcodegenSrc);
+
+// 3. Exercise background.js in both mocked Firefox (browser.*) and Chromium (chrome.*) runtimes
+async function testBackgroundRuntime(mode) {
+  const createdMenus = [];
+  const sentMessages = [];
+  const injectedTabs = [];
+  let onInstalledCb = null;
+  let onClickedCb = null;
+  let firstSendShouldFail = true;
+
+  const runtimeApi = {
+    lastError: null,
+    onInstalled: { addListener: (cb) => (onInstalledCb = cb) },
+    onStartup: { addListener: () => {} },
+  };
+
+  const contextMenusApi =
+    mode === 'firefox'
+      ? {
+          removeAll: () => Promise.resolve(),
+          create: (props) => createdMenus.push(props),
+          onClicked: { addListener: (cb) => (onClickedCb = cb) },
+        }
+      : {
+          removeAll: (cb) => cb(),
+          create: (props, cb) => {
+            createdMenus.push(props);
+            if (cb) cb();
+          },
+          onClicked: { addListener: (cb) => (onClickedCb = cb) },
+        };
+
+  const tabsApi =
+    mode === 'firefox'
+      ? {
+          sendMessage: (tabId, msg) => {
+            if (firstSendShouldFail) {
+              firstSendShouldFail = false;
+              return Promise.reject(new Error('No receiving end'));
+            }
+            sentMessages.push({ tabId, msg });
+            return Promise.resolve();
+          },
+        }
+      : {
+          sendMessage: (tabId, msg, cb) => {
+            if (firstSendShouldFail) {
+              firstSendShouldFail = false;
+              runtimeApi.lastError = { message: 'Could not establish connection' };
+              cb();
+              runtimeApi.lastError = null;
+              return;
+            }
+            sentMessages.push({ tabId, msg });
+            cb({ ok: true });
+          },
+        };
+
+  const scriptingApi = {
+    executeScript: async ({ target, files }) => {
+      injectedTabs.push({ tabId: target.tabId, files });
+    },
+  };
+
+  const apiObj = {
+    runtime: runtimeApi,
+    contextMenus: contextMenusApi,
+    tabs: tabsApi,
+    scripting: scriptingApi,
+    ...(mode === 'firefox'
+      ? {
+          theme: {
+            getCurrent: async () => ({ colors: { popup: '#2B2A33', popup_text: '#FBFBFE' } }),
+          },
+        }
+      : {}),
+  };
+
+  const sandbox = {
+    console,
+    Promise,
+    ...(mode === 'firefox' ? { browser: apiObj } : { chrome: apiObj }),
+  };
+  sandbox.globalThis = sandbox;
+
+  vm.runInNewContext(backgroundSrc, sandbox);
+  assert(typeof onInstalledCb === 'function', `${mode}: onInstalled listener not registered`);
+  assert(typeof onClickedCb === 'function', `${mode}: contextMenus.onClicked not registered`);
+
+  onInstalledCb();
+  await new Promise((r) => setTimeout(r, 10));
+  assert(createdMenus.length === 3, `${mode}: expected 3 context menu items, got ${createdMenus.length}`);
+
+  await onClickedCb(
+    { menuItemId: 'linkqr-show-link', linkUrl: 'https://example.org/test' },
+    { id: 42, windowId: 7, url: 'https://example.org' }
+  );
+
+  assert(injectedTabs.length === 1, `${mode}: scripting fallback did not trigger`);
+  assert(sentMessages.length === 1, `${mode}: message not delivered after fallback injection`);
+  assert(sentMessages[0].msg.payload === 'https://example.org/test', `${mode}: payload mismatch`);
+  if (mode === 'firefox') {
+    assert(sentMessages[0].msg.themeColors?.popup === '#2B2A33', 'firefox: themeColors missing');
+  } else {
+    assert(sentMessages[0].msg.themeColors === null, 'chromium: themeColors should be null');
+  }
 }
 
-// 3. Verify Nayuki qrcodegen.js parity with TypeScript sandbox wrapper and boostEcl
-const qrcodegenSrc = fs.readFileSync(path.join(extDir, 'qrcodegen.js'), 'utf8');
+await testBackgroundRuntime('firefox');
+await testBackgroundRuntime('chromium');
+
+// 4. Verify Nayuki qrcodegen.js parity with TypeScript sandbox wrapper and boostEcl
 new Function(qrcodegenSrc)();
 const QRC = globalThis.qrcodegen?.QrCode;
 const QSeg = globalThis.qrcodegen?.QrSegment;
@@ -72,7 +238,7 @@ const testPayloads = [
     label: 'url',
     text: 'https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions',
   },
-  { label: 'wifi', text: 'WIFI:T:WPA;S:StudioGuest;P:firefox-handoff-2026;;' },
+  { label: 'wifi', text: 'WIFI:T:WPA;S:StudioGuest;P:linkqr-handoff-2026;;' },
   { label: 'utf8', text: 'https://example.org/search?q=' + 'café-日本語-'.repeat(25) },
   { label: 'large-fallback-L', text: 'x'.repeat(2400) },
 ];
@@ -106,7 +272,6 @@ for (const { label, text, expectBoosted } of testPayloads) {
   assert(tsPath === jsParts.join(''), `SVG path mismatch on ${label}`);
 }
 
-// Oversized payload should throw cleanly
 let threwOnOversize = false;
 try {
   encodeQr('a'.repeat(4000));
@@ -115,7 +280,7 @@ try {
 }
 assert(threwOnOversize, 'Expected encodeQr to reject oversized payloads');
 
-// 4. Verify Firefox theme contrast guard
+// 5. Verify Firefox theme & Chromium/Safari OS light/dark contrast guard
 for (const preset of FIREFOX_THEME_PRESETS) {
   const resolved = resolveCardTheme(preset.colors, preset.isDarkChrome);
   assert(resolved.contrastRatio >= 7.0, `Contrast too low for ${preset.name}`);
@@ -129,6 +294,11 @@ for (const preset of FIREFOX_THEME_PRESETS) {
   }
 }
 
+const osLight = resolveCardTheme(null, false);
+const osDark = resolveCardTheme(null, true);
+assert(!osLight.usedContrastPlate && osLight.contrastRatio >= 7.0, 'OS Light must use native contrast');
+assert(osDark.usedContrastPlate && osDark.qrBg === '#FFFFFF', 'OS Dark must use white scan plate');
+
 console.log(
-  `✓ LinkQR extension verified (${referencedFiles.size} manifest assets, ${testPayloads.length} QR vectors, ${FIREFOX_THEME_PRESETS.length} Firefox themes)`
+  `✓ LinkQR cross-browser extension verified (2 manifests, ${referencedFiles.size} assets, Firefox & Chromium runtimes, ${testPayloads.length} QR vectors, ${FIREFOX_THEME_PRESETS.length} Firefox themes + OS light/dark)`
 );
