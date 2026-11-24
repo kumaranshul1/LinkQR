@@ -1,5 +1,6 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
+  AlertCircle,
   BookOpen,
   Check,
   Code2,
@@ -41,22 +42,48 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('sandbox');
   const [browserTarget, setBrowserTarget] = useState<BrowserTarget>('firefox');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'done'>('idle');
+  const [downloadState, setDownloadState] = useState<'idle' | 'downloading' | 'done' | 'error'>(
+    'idle'
+  );
+  const downloadTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (downloadTimerRef.current !== null) {
+        window.clearTimeout(downloadTimerRef.current);
+      }
+    };
+  }, []);
 
   const activeNavLabel =
     NAV_ITEMS.find((item) => item.id === activeTab)?.label ?? 'Live Sandbox';
   const activeTargetMeta = BROWSER_TARGETS[browserTarget];
 
+  const scheduleDownloadReset = (delayMs: number) => {
+    if (downloadTimerRef.current !== null) {
+      window.clearTimeout(downloadTimerRef.current);
+    }
+    downloadTimerRef.current = window.setTimeout(() => {
+      downloadTimerRef.current = null;
+      setDownloadState('idle');
+    }, delayMs);
+  };
+
   const handleDownload = async (bundleOverride?: ExtensionBundleId) => {
     if (downloadState === 'downloading') return;
     const bundleId = bundleOverride ?? activeTargetMeta.bundleId;
+    if (downloadTimerRef.current !== null) {
+      window.clearTimeout(downloadTimerRef.current);
+      downloadTimerRef.current = null;
+    }
     setDownloadState('downloading');
     try {
       await downloadExtensionZip(bundleId);
       setDownloadState('done');
-      window.setTimeout(() => setDownloadState('idle'), 2200);
+      scheduleDownloadReset(2200);
     } catch {
-      setDownloadState('idle');
+      setDownloadState('error');
+      scheduleDownloadReset(3500);
     }
   };
 
@@ -141,12 +168,21 @@ export default function App() {
             type="button"
             onClick={() => handleDownload()}
             disabled={downloadState === 'downloading'}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#E85D2A] px-4 py-2 text-xs font-medium text-white whitespace-nowrap shrink-0 transition-colors hover:bg-[#D14F20] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E85D2A] disabled:opacity-60 sm:text-sm"
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium text-white whitespace-nowrap shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 sm:text-sm ${
+              downloadState === 'error'
+                ? 'bg-red-600 hover:bg-red-700 focus-visible:outline-red-600'
+                : 'bg-[#E85D2A] hover:bg-[#D14F20] focus-visible:outline-[#E85D2A]'
+            }`}
           >
             {downloadState === 'done' ? (
               <>
                 <Check className="h-4 w-4" />
                 Downloaded
+              </>
+            ) : downloadState === 'error' ? (
+              <>
+                <AlertCircle className="h-4 w-4" />
+                Download Failed — Retry
               </>
             ) : (
               <>

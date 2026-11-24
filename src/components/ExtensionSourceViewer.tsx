@@ -228,12 +228,16 @@ export function ExtensionSourceViewer({
             )}
           </div>
 
-          {activeFile.kind === 'text' && activeFile.language === 'svg' && (
+          {activeFile.kind === 'text' && activeFile.language === 'svg' && activeFile.previewUrl && (
             <div className="flex items-center gap-4 border-b border-slate-200 bg-slate-50/50 px-5 py-4">
-              <div
-                className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1"
-                dangerouslySetInnerHTML={{ __html: activeFile.content }}
-              />
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-1">
+                <img
+                  src={activeFile.previewUrl}
+                  alt="LinkQR native SVG icon"
+                  className="h-full w-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <div className="text-xs text-slate-600">
                 <div className="font-medium text-slate-900">Native Firefox SVG Icon</div>
                 <p className="mt-0.5">

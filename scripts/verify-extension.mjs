@@ -35,7 +35,12 @@ function assertValidPng(filePath, expectedSize) {
   );
 }
 
-// 1A. Validate Firefox MV3 manifest (extension/manifest.json)
+// 1A. Validate package.json & Firefox MV3 manifest (extension/manifest.json)
+const rootPkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
+const bundlesManifest = JSON.parse(
+  fs.readFileSync(path.join(rootDir, 'src', 'lib', 'extensionBundles.json'), 'utf8')
+);
+
 const firefoxManifestPath = path.join(extDir, 'manifest.json');
 assert(fs.existsSync(firefoxManifestPath), 'extension/manifest.json is missing');
 const firefoxManifest = JSON.parse(fs.readFileSync(firefoxManifestPath, 'utf8'));
@@ -95,12 +100,23 @@ for (const perm of ['contextMenus', 'activeTab', 'scripting']) {
   );
 }
 
+// 1C. Release metadata consistency across package.json and both manifests
+assert(
+  firefoxManifest.version === rootPkg.version && chromiumManifest.version === rootPkg.version,
+  `Version mismatch: package.json=${rootPkg.version}, firefox=${firefoxManifest.version}, chromium=${chromiumManifest.version}`
+);
+assert(
+  firefoxManifest.name === 'LinkQR' && chromiumManifest.name === 'LinkQR',
+  'Both manifests must use name "LinkQR"'
+);
+
 for (const size of [16, 32, 48, 128]) {
   const relIcon = chromiumManifest.icons?.[String(size)];
   assert(relIcon && relIcon.endsWith('.png'), `Chromium/Safari manifest missing ${size}px PNG icon`);
   assertValidPng(path.join(extDir, relIcon), size);
 }
 
+// 1D. Cross-check shared extensionBundles.json against /extension/ files, README, PNG sizes, and manifests
 const referencedFiles = new Set([
   ...(firefoxManifest.background?.scripts ?? []),
   ...Object.values(firefoxManifest.icons ?? {}),
@@ -108,6 +124,7 @@ const referencedFiles = new Set([
   ...Object.values(chromiumManifest.icons ?? {}),
   'qrcodegen.js',
   'content.js',
+  'README.md',
 ]);
 
 for (const relPath of referencedFiles) {
@@ -115,13 +132,45 @@ for (const relPath of referencedFiles) {
   assert(fs.existsSync(fullPath), `Extension references missing file: extension/${relPath}`);
 }
 
-// 2. Verify JS syntax & AMO safety rules (no innerHTML in content.js)
+for (const bundleKey of ['firefox', 'chromium-safari']) {
+  const entries = bundlesManifest[bundleKey];
+  assert(Array.isArray(entries) && entries.length > 0, `Missing bundle definition: ${bundleKey}`);
+  const targets = new Set(entries.map((e) => e.target));
+  for (const requiredTarget of ['manifest.json', 'background.js', 'content.js', 'qrcodegen.js', 'README.md']) {
+    assert(targets.has(requiredTarget), `Bundle "${bundleKey}" missing required target: ${requiredTarget}`);
+  }
+  const manifestObj = bundleKey === 'firefox' ? firefoxManifest : chromiumManifest;
+  for (const iconPath of Object.values(manifestObj.icons ?? {})) {
+    assert(targets.has(iconPath), `Bundle "${bundleKey}" missing manifest icon: ${iconPath}`);
+  }
+  for (const entry of entries) {
+    const fullPath = path.join(extDir, entry.source);
+    assert(fs.existsSync(fullPath), `Bundle "${bundleKey}" references missing file: extension/${entry.source}`);
+    if (entry.kind === 'binary') {
+      const actualBytes = fs.statSync(fullPath).size;
+      assert(
+        entry.approxBytes === actualBytes,
+        `Stale approxBytes for extension/${entry.source}: manifest says ${entry.approxBytes}, actual file is ${actualBytes}`
+      );
+    }
+  }
+}
+
+// 2. Verify JS syntax & AMO/XSS safety rules (no innerHTML in content.js, no dangerouslySetInnerHTML in Source Viewer)
 const backgroundSrc = fs.readFileSync(path.join(extDir, 'background.js'), 'utf8');
 const contentSrc = fs.readFileSync(path.join(extDir, 'content.js'), 'utf8');
 const qrcodegenSrc = fs.readFileSync(path.join(extDir, 'qrcodegen.js'), 'utf8');
+const sourceViewerSrc = fs.readFileSync(
+  path.join(rootDir, 'src', 'components', 'ExtensionSourceViewer.tsx'),
+  'utf8'
+);
 assert(
   !/\binnerHTML\b/.test(contentSrc),
   'extension/content.js must not use innerHTML (use createElementNS for AMO linter compliance)'
+);
+assert(
+  !/\bdangerouslySetInnerHTML\b/.test(sourceViewerSrc),
+  'ExtensionSourceViewer.tsx must not use dangerouslySetInnerHTML'
 );
 new Function(backgroundSrc);
 new Function(contentSrc);

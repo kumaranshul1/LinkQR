@@ -14,7 +14,7 @@ This repository houses a **cross-browser Manifest V3 extension** (`/extension/`)
   - `extension/qrcodegen.js` — Compiled ES2020 build of Project Nayuki’s MIT-licensed `qrcodegen.ts` (vendored; do not hand-edit).
   - `extension/icons/icon.svg` + `icon-16/32/48/128.png` — Native SVG icon for Firefox and raster PNG icons for Chromium/Safari (regenerated deterministically via `node scripts/generate-icons.mjs`).
   - `extension/README.md` — End-user installation readme included inside both downloadable ZIPs.
-- **`src/lib/extensionFiles.ts`** imports all files directly from `/extension/` using Vite `?raw` and static PNG imports, assembling either the `'firefox'` or `'chromium-safari'` bundle. Never duplicate extension code as inline strings inside `src/`.
+- **`src/lib/extensionBundles.json`** is the shared bundle membership manifest consumed by `src/lib/extensionFiles.ts` (playground source viewer & ZIP download), `scripts/package-extension.mjs` (local unpacked packaging), and `scripts/verify-extension.mjs`. `src/lib/extensionFiles.ts` imports all files directly from `/extension/` using Vite `?raw`, `?url`, and static PNG imports—never duplicate extension code as inline strings inside `src/`.
 - **Sandbox parity**:
   - `src/lib/qrEncoder.ts` wraps `src/lib/vendor/qrcodegen.ts` (same Nayuki library as `extension/qrcodegen.js`, using `Ecc.MEDIUM` with `boostEcl = true` and fallback to `Ecc.LOW`).
   - `src/lib/themeResolver.ts` mirrors the exact WCAG luminance contrast guard and `prefers-color-scheme` fallback in `extension/content.js`.

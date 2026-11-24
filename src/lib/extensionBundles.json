@@ -1,0 +1,119 @@
+{
+  "firefox": [
+    {
+      "source": "manifest.json",
+      "target": "manifest.json",
+      "kind": "text",
+      "language": "json",
+      "summary": "Firefox MV3 manifest (109+) with Gecko ID, theme API permission, SVG icon, and pure on-demand activeTab injection (no <all_urls> host permissions)."
+    },
+    {
+      "source": "background.js",
+      "target": "background.js",
+      "kind": "text",
+      "language": "javascript",
+      "summary": "Cross-browser MV3 event page / service worker with zero-dependency browser/chrome shim, context menus, optional Firefox theme resolution, and pure on-demand activeTab injection."
+    },
+    {
+      "source": "content.js",
+      "target": "content.js",
+      "kind": "text",
+      "language": "javascript",
+      "summary": "Injected on demand to render a Shadow DOM floating QR card using safe SVG DOM APIs (zero innerHTML), Firefox theme or OS light/dark contrast guard, and fresh right-click anchoring."
+    },
+    {
+      "source": "qrcodegen.js",
+      "target": "qrcodegen.js",
+      "kind": "text",
+      "language": "javascript",
+      "summary": "Official Project Nayuki QR Code generator (MIT License) compiled to ES2020 — supports Numeric/Alphanumeric/Byte modes and automatic ECC boosting."
+    },
+    {
+      "source": "icons/icon.svg",
+      "target": "icons/icon.svg",
+      "kind": "text",
+      "language": "svg",
+      "summary": "Scalable vector extension icon supported natively by Firefox."
+    },
+    {
+      "source": "README.md",
+      "target": "README.md",
+      "kind": "text",
+      "language": "markdown",
+      "summary": "Installation guide for Firefox, Chromium browsers, and Safari plus MIT attribution."
+    }
+  ],
+  "chromium-safari": [
+    {
+      "source": "manifest.chromium.json",
+      "target": "manifest.json",
+      "kind": "text",
+      "language": "json",
+      "summary": "W3C-standard MV3 manifest for Chrome, Edge, Brave, Opera, Vivaldi, Arc, and Safari (service_worker, raster PNG icons, and pure on-demand activeTab injection with zero <all_urls> permissions)."
+    },
+    {
+      "source": "background.js",
+      "target": "background.js",
+      "kind": "text",
+      "language": "javascript",
+      "summary": "Cross-browser MV3 event page / service worker with zero-dependency browser/chrome shim, context menus, optional Firefox theme resolution, and pure on-demand activeTab injection."
+    },
+    {
+      "source": "content.js",
+      "target": "content.js",
+      "kind": "text",
+      "language": "javascript",
+      "summary": "Injected on demand to render a Shadow DOM floating QR card using safe SVG DOM APIs (zero innerHTML), Firefox theme or OS light/dark contrast guard, and fresh right-click anchoring."
+    },
+    {
+      "source": "qrcodegen.js",
+      "target": "qrcodegen.js",
+      "kind": "text",
+      "language": "javascript",
+      "summary": "Official Project Nayuki QR Code generator (MIT License) compiled to ES2020 — supports Numeric/Alphanumeric/Byte modes and automatic ECC boosting."
+    },
+    {
+      "source": "icons/icon-16.png",
+      "target": "icons/icon-16.png",
+      "kind": "binary",
+      "language": "png",
+      "dimensions": "16×16",
+      "approxBytes": 218,
+      "summary": "16×16 raster PNG icon for browser context menus and tabs."
+    },
+    {
+      "source": "icons/icon-32.png",
+      "target": "icons/icon-32.png",
+      "kind": "binary",
+      "language": "png",
+      "dimensions": "32×32",
+      "approxBytes": 361,
+      "summary": "32×32 HiDPI toolbar and menu PNG icon."
+    },
+    {
+      "source": "icons/icon-48.png",
+      "target": "icons/icon-48.png",
+      "kind": "binary",
+      "language": "png",
+      "dimensions": "48×48",
+      "approxBytes": 458,
+      "summary": "48×48 extension management page PNG icon."
+    },
+    {
+      "source": "icons/icon-128.png",
+      "target": "icons/icon-128.png",
+      "kind": "binary",
+      "language": "png",
+      "dimensions": "128×128",
+      "approxBytes": 1249,
+      "summary": "128×128 Chrome Web Store, Edge Add-ons, and Safari icon."
+    },
+    {
+      "source": "README.md",
+      "target": "README.md",
+      "kind": "text",
+      "language": "markdown",
+      "summary": "Installation guide for Firefox, Chromium browsers, and Safari plus MIT attribution."
+    }
+  ]
+}

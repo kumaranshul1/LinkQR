@@ -157,6 +157,8 @@ export function BrowserSandbox({
     const bounds = viewportEl.getBoundingClientRect();
     const relX = event.clientX - bounds.left;
     const relY = event.clientY - bounds.top;
+    const clampedX = Math.max(12, Math.min(relX, Math.max(12, bounds.width - 252)));
+    const clampedY = Math.max(12, Math.min(relY, Math.max(12, bounds.height - 136)));
 
     const anchorEl = (event.target as HTMLElement | null)?.closest('a[href]') as
       | HTMLAnchorElement
@@ -165,8 +167,8 @@ export function BrowserSandbox({
     if (anchorEl) {
       const linkRect = anchorEl.getBoundingClientRect();
       setContextMenu({
-        x: Math.min(relX, Math.max(12, bounds.width - 252)),
-        y: Math.min(relY, Math.max(12, bounds.height - 136)),
+        x: clampedX,
+        y: clampedY,
         anchorTop: linkRect.top - bounds.top,
         anchorBottom: linkRect.bottom - bounds.top,
         triggerType: 'link',
@@ -178,8 +180,8 @@ export function BrowserSandbox({
     const selectionText = window.getSelection()?.toString().trim() ?? '';
     if (selectionText.length > 0) {
       setContextMenu({
-        x: Math.min(relX, Math.max(12, bounds.width - 252)),
-        y: Math.min(relY, Math.max(12, bounds.height - 136)),
+        x: clampedX,
+        y: clampedY,
         triggerType: 'selection',
         payload: selectionText,
       });
@@ -187,8 +189,8 @@ export function BrowserSandbox({
     }
 
     setContextMenu({
-      x: Math.min(relX, Math.max(12, bounds.width - 252)),
-      y: Math.min(relY, Math.max(12, bounds.height - 136)),
+      x: clampedX,
+      y: clampedY,
       triggerType: 'page',
       payload: pageUrl,
     });

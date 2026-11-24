@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, Download } from 'lucide-react';
+import { AlertCircle, Check, Copy, Download } from 'lucide-react';
 import {
   BROWSER_TARGETS,
   BROWSER_TARGET_LIST,
@@ -12,7 +12,7 @@ interface InstallGuideProps {
   browserTarget: BrowserTarget;
   onBrowserTargetChange: (target: BrowserTarget) => void;
   onDownload: (bundleId?: ExtensionBundleId) => Promise<void>;
-  downloadState: 'idle' | 'downloading' | 'done';
+  downloadState: 'idle' | 'downloading' | 'done' | 'error';
 }
 
 const PERMISSIONS_LIST = [
@@ -82,12 +82,21 @@ export function InstallGuide({
           type="button"
           onClick={() => onDownload(activeMeta.bundleId)}
           disabled={downloadState === 'downloading'}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#E85D2A] px-4 py-2 text-sm font-medium text-white whitespace-nowrap shrink-0 transition-colors hover:bg-[#D14F20] disabled:opacity-60"
+          className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white whitespace-nowrap shrink-0 transition-colors disabled:opacity-60 ${
+            downloadState === 'error'
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-[#E85D2A] hover:bg-[#D14F20]'
+          }`}
         >
           {downloadState === 'done' ? (
             <>
               <Check className="h-4 w-4" />
               Downloaded {activeZip}
+            </>
+          ) : downloadState === 'error' ? (
+            <>
+              <AlertCircle className="h-4 w-4" />
+              Download Failed — Retry
             </>
           ) : (
             <>
